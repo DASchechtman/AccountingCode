@@ -115,28 +115,6 @@ function FindMultiWeekRepayment(date_string: string) {
   return Number(REPAYMENT_ROW[REPAYMENT_COL]);
 }
 
-function RecordTotal(
-  date_map: Map<string, number>,
-  total_vals: string[],
-  last_recorded_date: string,
-  sheet: Tab,
-  total_range: string,
-  purchase_range: string
-) {
-  const MapToRoundUp = function (arr: string[]) {
-    return arr.map((x) => [RoundUpToNearestDollar(x)]);
-  };
-
-  const DATE_TOTAL = date_map.get(last_recorded_date)!;
-  const REPAYMENT = FindMultiWeekRepayment(last_recorded_date);
-  total_vals[total_vals.length - 1] = String(DATE_TOTAL + REPAYMENT);
-  sheet.getRange(total_range).setValues(MapToRoundUp(total_vals));
-
-  if (sheet.getRange(purchase_range).getValue() === "") {
-    sheet.getRange(purchase_range).setValue(CreateDateString(new Date(), true));
-  }
-}
-
 function GetDateWhenCellEmpty(cell: any) {
     if (!cell) { return CreateDateString(new Date(), true); }
     return cell
@@ -460,6 +438,15 @@ function CreateNewHouseholdBudgetTab() {
   NEW_TAB.setFrozenColumns(1);
 }
 
+/**
+ * @returns {boolean} checks if date1 is greater than date2
+ */
+function CompareDates(date1: Date | string, date2: Date | string) {
+  date1 = new Date(CreateDateString(date1))
+  date2 = new Date(CreateDateString(date2))
+  return date1.getTime() > date2.getTime()
+}
+
 function GroupByDate(date_header: string, tab_name: string, shade_red: boolean = true) {
     const TAB = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tab_name);
 
@@ -537,15 +524,15 @@ function GroupByDate(date_header: string, tab_name: string, shade_red: boolean =
 
         const RANGE = TAB.getRange(start, 1, end-start, TAB.getLastColumn())
         const COLOR_RANGE = TAB.getRange(start-1, 1, end-start, TAB.getLastColumn())
+        const DUE_DATE_PAST = CompareDates(CUR_DATE, DUE_DATE)
         
-        console.log(`DATA LOG 3: ${CUR_DATE > DUE_DATE}`)
-        if (CUR_DATE.getTime() > DUE_DATE.getTime() && shade_red) {
+        if (DUE_DATE_PAST && shade_red) {
             COLOR_RANGE.setBackground(LIGHT_RED_SHADES[i++ % 2])
         }
 
         try {
             const GROUP = TAB.getRowGroup(start, 1)
-            if (CUR_DATE > DUE_DATE) { 
+            if (DUE_DATE_PAST) { 
                 GROUP?.collapse() 
             }
             else {
@@ -561,23 +548,19 @@ function GroupByDate(date_header: string, tab_name: string, shade_red: boolean =
 }
 
 function onEdit(_: unknown) {
-  const SHEET =
-    SpreadsheetApp.getActiveSpreadsheet().getSheetByName("One Week Loans");
-  const ONE_WEEK_HEADERS = SHEET!
-    .getRange(1, 1, 1, SHEET!.getLastColumn())
-    .getValues()[0];
-
   ComputeTotal();
   GenerateRepaymentSchedule();
 }
 
 function onOpen(_: unknown) {
-  ComputeMonthlyIncome();
-  GroupByDate("Due Date", "One Week Loans")
-  GroupByDate("Purchase Date", "Multi Week Loans", false)
-
   const UI = SpreadsheetApp.getUi();
   UI.createMenu("Budgeting")
     .addItem("Create New Household Budget Tab", "CreateNewHouseholdBudgetTab")
     .addToUi();
+}
+
+function onOpenInstallable(_: unknown) {
+  ComputeMonthlyIncome();
+  GroupByDate("Due Date", "One Week Loans")
+  GroupByDate("Purchase Date", "Multi Week Loans", false)
 }
