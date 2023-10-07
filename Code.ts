@@ -1,202 +1,253 @@
-type CheckPayOut = (date: Date, dir: number, inc: number) => boolean;
-type Spreadsheet = GoogleAppsScript.Spreadsheet.Spreadsheet;
-type Tab = GoogleAppsScript.Spreadsheet.Sheet;
+function GroupByDate(
+  date_header: string,
+  tab_name: string,
+  shade_red: boolean = true
+) {
+  const TAB = new GoogleSheetTabs(tab_name);
 
-const PURCHASE_HEADER = "Purchases for"
+  const __InsertGroupingRow = function (date: string) {
+    return function (arr: DataArrayEntry) {
+      arr[PURCHASE_LOCATION_INDEX] = `${PURCHASE_HEADER} ${date}`;
+      if (CARD_INDEX >= 0) { arr[CARD_INDEX] = " " }
+      return arr;
+    };
+  };
 
-class PayDay {
-  private pay_out_amt: number;
-  private pay_date: Date;
-  private ShouldPayOut: CheckPayOut;
-  private months = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-  private day_inc = 7;
-  private total_days = 0;
+  const __GetNextDateGroup = function (date_header: string, row_index: number) {
+    const SEARCH_DATE = date_header.split(" ")[2];
+    const DateFound = function (row: (string | number)[]) {
+      return (
+        String(row[PURCHASE_LOCATION_INDEX]).includes(SEARCH_DATE) ||
+        String(row[DATE_COL_INDEX]).includes(SEARCH_DATE)
+      );
+    };
+    let row = TAB.GetRow(row_index);
 
-  constructor(pay_out_amt: number, pay_date: Date, ShouldPayOut: CheckPayOut) {
-    this.pay_out_amt = pay_out_amt;
-    this.ShouldPayOut = ShouldPayOut;
-    this.pay_date = new Date(pay_date);
-  }
-
-  public SetPayoutDate(PayOutDate: (date: Date) => Date) {
-    this.pay_date = PayOutDate(this.pay_date);
-  }
-
-  public PayOut() {
-    let pay_amt = this.pay_out_amt;
-    if (!this.ShouldPayOut(this.pay_date, this.total_days, this.day_inc)) {
-      pay_amt = 0;
+    while (row && DateFound(row)) {
+      row_index++;
+      row = TAB.GetRow(row_index);
     }
-    this.pay_date.setUTCDate(this.pay_date.getUTCDate() + this.day_inc);
-    this.total_days += this.day_inc;
-    return pay_amt;
-  }
+    return row_index - 1;
+  };
 
-  public PayMonth() {
-    const MONTH_DAY = this.pay_date.getUTCDate();
-    const MONTH = this.pay_date.getUTCMonth();
-    if (MONTH_DAY >= 28) {
-      return this.months[(MONTH + 1) % this.months.length];
+  const GenerateLoanGroupHeader = function () {
+    let last_recorded_date = "";
+    const FIRST_ROW_PAST_HEADERS = 1
+
+    for (let i = FIRST_ROW_PAST_HEADERS; i < TAB.NumberOfRows(); i++) {
+      const ROW = TAB.GetRow(i)!.map(x => String(x));
+
+      if (ROW[PURCHASE_LOCATION_INDEX].includes(PURCHASE_HEADER)) {
+        i = __GetNextDateGroup(ROW[PURCHASE_LOCATION_INDEX], i);
+        continue;
+      } else if (ROW[DATE_COL_INDEX] === "") {
+        continue;
+      }
+
+      const NEW_DATE = __CreateDateString(ROW[DATE_COL_INDEX]);
+
+      if (last_recorded_date === "" || last_recorded_date !== NEW_DATE) {
+        last_recorded_date = NEW_DATE;
+        TAB.InsertRow(i, [], __InsertGroupingRow(NEW_DATE));
+      }
     }
-    return this.months[MONTH];
-  }
-}
+  };
 
-function IndexToColLetter(index: number) {
-  const DIGITS = new Array<number>();
-  const BASE = 26;
+  const GetGroupBoundries = function () {
+    const BOUNDRIES = new Map<string, any[]>();
+    for (let i = 1; i < TAB.NumberOfRows(); i++) {
+      const ROW = TAB.GetRow(i)
+      if (!ROW) { continue }
 
-  if (index < 0) {
-    index = 0;
-  }
-
-  while (true) {
-    const LETTER_CODE = index % BASE;
-    DIGITS.push(LETTER_CODE);
-    if (index < 26) {
-      break;
+      if (String(ROW[PURCHASE_LOCATION_INDEX]).includes(PURCHASE_HEADER)) {
+        const DATE = String(ROW[PURCHASE_LOCATION_INDEX]).split(" ")[2];
+        const ARR = [i + 1, 0, DATE]
+        i = __GetNextDateGroup(String(ROW[PURCHASE_LOCATION_INDEX]), i);
+        ARR[1] = i - (ARR[0] as number) + 1;
+        BOUNDRIES.set(DATE, ARR);
+        continue
+      }
     }
-    index = ~~(index / BASE) - 1;
+
+    return BOUNDRIES
   }
 
-  return DIGITS.map((x) => String.fromCharCode("A".charCodeAt(0) + x))
-    .reverse()
-    .join("");
-}
+  const GroupRowsInSheet = function () {
+    const LIGHT_RED_SHADES = ["#FF7F7F", "#FF9F9F"]
+    let i = 0
+    console.log(BOUNDRIES.size)
+    BOUNDRIES.forEach((val, key) => {
+      const DUE_DATE = new Date(val[2])
+      const CUR_DATE = new Date()
+      const DUE_DATE_HAS_PASSED = __CompareDates(CUR_DATE, DUE_DATE)
+      const GROUP_RANGE = TAB.GetTab().getRange(val[0]+1, 1, val[1], TAB.GetTab().getLastColumn())
+      const COLOR_RANGE = TAB.GetTab().getRange(val[0], 1, val[1]+1, TAB.GetTab().getLastColumn())
 
-function RoundUpToNearestDollar(table_val: string) {
-  if (table_val === "") {
-    return "";
-  }
-  const NUM = Number(table_val);
+      if (DUE_DATE_HAS_PASSED && shade_red) {
+        COLOR_RANGE.setBackground(LIGHT_RED_SHADES[i++ % LIGHT_RED_SHADES.length])
+      }
 
-  if (isNaN(NUM)) {
-    return "";
-  }
-
-  return Math.ceil(NUM);
-}
-
-function FindMultiWeekRepayment(date_string: string) {
-  const TAB =
-    SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Multi Week Loans");
-  const HEADERS = TAB!.getRange(1, 1, 1, TAB!.getLastColumn()).getValues()[0];
-  const DATE = new Date(date_string);
-  const DATE_COL = HEADERS.indexOf("Repayment Date");
-  const LOANEE_COL = HEADERS.indexOf("Loanee");
-  const REPAYMENT_COL = HEADERS.indexOf("Repayment Amount");
-  let repayment = 0;
-
-  if (!TAB) {
-    return repayment;
+      try {
+        const GROUP = TAB.GetTab().getRowGroup(val[0], 1)
+        if (DUE_DATE_HAS_PASSED) {
+          GROUP?.collapse()
+        }
+        else {
+          GROUP?.remove()
+          GROUP_RANGE.shiftRowGroupDepth(1)
+        }
+      } catch {
+        GROUP_RANGE.shiftRowGroupDepth(1)
+      }
+    })
   }
 
-  const VALS = TAB.getDataRange().getValues();
-  const REPAYMENT_ROW = VALS.find(
-    (x) => new Date(x[DATE_COL]).toDateString() === DATE.toDateString()
-  );
 
-  if (!REPAYMENT_ROW || REPAYMENT_ROW[LOANEE_COL] === "Dan") {
-    return repayment;
+  const DATE_COL_INDEX = TAB.GetHeaderIndex(date_header);
+  const PURCHASE_LOCATION_INDEX = TAB.GetHeaderIndex("Purchase Location");
+  const CARD_INDEX = TAB.GetHeaderIndex("Card");
+
+  if (DATE_COL_INDEX === -1) {
+    return;
   }
-  return Number(REPAYMENT_ROW[REPAYMENT_COL]);
-}
 
-function GetDateWhenCellEmpty(cell: any) {
-    if (!cell) { return CreateDateString(new Date(), true); }
-    return cell
+  GenerateLoanGroupHeader()
+  const BOUNDRIES = GetGroupBoundries()
+  GroupRowsInSheet()
+
+  TAB.SaveToTab();
 }
 
 function ComputeTotal() {
   const TAB_NAME = "One Week Loans";
-  const SHEET = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TAB_NAME);
+  const SHEET = new GoogleSheetTabs(TAB_NAME);
 
-  if (!SHEET) {
-    return;
+  const PURCHASE_COL_HEADER = "Purchase Location";
+  const DUE_DATE_COL_HEADER = "Due Date";
+  const AMOUNT_COL_HEADER = "Amount";
+  const TOTAL_COL_HEADER = "Total";
+  const PURCHASE_DATE_COL_HEADER = "Purchase Date";
+
+  const PURCHASE_LOCATION_INDEX = SHEET.GetCol(PURCHASE_COL_HEADER)?.map(x => String(x));
+  const DUE_DATE_INDEX = SHEET.GetCol(DUE_DATE_COL_HEADER)?.map(x => String(x));
+  const AMOUNT_INDEX = SHEET.GetCol(AMOUNT_COL_HEADER)
+  const TOTAL_INDEX = SHEET.GetCol(TOTAL_COL_HEADER);
+  const PURCHASE_DATE_INDEX = SHEET.GetCol(PURCHASE_DATE_COL_HEADER)?.map(x => String(x));
+
+  if (!PURCHASE_LOCATION_INDEX || !DUE_DATE_INDEX || !AMOUNT_INDEX || !TOTAL_INDEX || !PURCHASE_DATE_INDEX) {
+    return
   }
 
-  const DATA = SHEET.getDataRange().getValues();
-  const PURCHASE_LOCATION_INDEX = DATA[0].indexOf("Purchase Location");
-  const DUE_DATE_INDEX = DATA[0].indexOf("Due Date");
-  const AMOUNT_INDEX = DATA[0].indexOf("Amount");
-  const TOTAL_INDEX = DATA[0].indexOf("Total");
-  const PURCHASE_DATE_INDEX = DATA[0].indexOf("Purchase Date");
-  let total = 0
+  let total = 0;
+  let last_amt = 0
+  let last_recorded_date = "";
 
-  let found_change = false
+  for (let i = 1; i < SHEET.NumberOfRows(); i++) {
+    const PURCHASE_LOCATION = PURCHASE_LOCATION_INDEX[i];
+    const DUE_DATE = DUE_DATE_INDEX[i];
+    const AMOUNT = typeof AMOUNT_INDEX[i] === "number" ? Number(AMOUNT_INDEX[i]) : -1;
 
-  for (let col = 1; col < DATA.length; col++) {
-    const ROW = DATA[col];
+    if (PURCHASE_LOCATION.includes(PURCHASE_HEADER)) {
+      continue;
+    }
 
-    if (ROW[DUE_DATE_INDEX] === "" || ROW[AMOUNT_INDEX] === "") {
-        continue
+    if (DUE_DATE === "" || AMOUNT === -1 || PURCHASE_LOCATION === "") {
+      TOTAL_INDEX[i] = "";
+      continue;
+    }
+
+    if (i + 1 === SHEET.NumberOfRows()) {
+      if (last_recorded_date !== DUE_DATE) {
+        TOTAL_INDEX[last_amt] = __AddToFixed(total, __FindMultiWeekRepayment(last_recorded_date), Math.ceil)
+        TOTAL_INDEX[i] = AMOUNT
+      }
+      else {
+        TOTAL_INDEX[i] = __AddToFixed(__AddToFixed(total, AMOUNT), __FindMultiWeekRepayment(DUE_DATE), Math.ceil)
+      }
+    }
+    else if (last_recorded_date === "" || last_recorded_date !== DUE_DATE) {
+      if (last_recorded_date !== "") { 
+        TOTAL_INDEX[last_amt] = __AddToFixed(total, __FindMultiWeekRepayment(last_recorded_date), Math.ceil)
+      }
+      last_recorded_date = DUE_DATE;
+      total = AMOUNT;
+      last_amt = i
+      TOTAL_INDEX[i] = ""
     }
     else {
-        found_change = true
+      total += AMOUNT;
+      last_amt = i
+      TOTAL_INDEX[i] = ""
     }
 
-    if (ROW[PURCHASE_LOCATION_INDEX].toString().includes(PURCHASE_HEADER)) { continue; }
-
-    if (col + 1 === DATA.length) {
-        ROW[TOTAL_INDEX] = RoundUpToNearestDollar(String(total + ROW[AMOUNT_INDEX] + FindMultiWeekRepayment(ROW[DUE_DATE_INDEX])))
-        ROW[PURCHASE_DATE_INDEX] = GetDateWhenCellEmpty(ROW[PURCHASE_DATE_INDEX])
-        continue
-    }
-
-    const NEXT_PURCHASE_IS_HEADER = DATA[col + 1][PURCHASE_LOCATION_INDEX].toString().includes(PURCHASE_HEADER);
-    const NEXT_DATE_NOT_MATCH = DATA[col + 1][DUE_DATE_INDEX].toString() !== ROW[DUE_DATE_INDEX].toString();
-
-    
-    if (NEXT_PURCHASE_IS_HEADER || NEXT_DATE_NOT_MATCH) {
-        ROW[TOTAL_INDEX] = RoundUpToNearestDollar(String(total + ROW[AMOUNT_INDEX] + FindMultiWeekRepayment(ROW[DUE_DATE_INDEX])))
-        total = 0
-    }
-    else {
-        ROW[TOTAL_INDEX] = ""
-        total += ROW[AMOUNT_INDEX]
-    }
-    ROW[PURCHASE_DATE_INDEX] = GetDateWhenCellEmpty(ROW[PURCHASE_DATE_INDEX])
-    
+    PURCHASE_DATE_INDEX[i] = __GetDateWhenCellEmpty(PURCHASE_DATE_INDEX[i]);
   }
 
-
-  if (found_change) { SHEET.getDataRange().setValues(DATA) }
+  SHEET.WriteCol(PURCHASE_COL_HEADER, PURCHASE_LOCATION_INDEX)
+  SHEET.WriteCol(DUE_DATE_COL_HEADER, DUE_DATE_INDEX)
+  SHEET.WriteCol(AMOUNT_COL_HEADER, AMOUNT_INDEX)
+  SHEET.WriteCol(TOTAL_COL_HEADER, TOTAL_INDEX.map(x => typeof x === "number" ? __AddToFixed(x, 0, Math.ceil) : x))
+  SHEET.WriteCol(PURCHASE_DATE_COL_HEADER, PURCHASE_DATE_INDEX)
+  SHEET.SaveToTab();
 }
 
-function AddToFixed(num: number, add_val: number) {
-  return ~~((num + add_val) * 100) / 100;
-}
+function GenerateRepaymentSchedule() {
+  const TAB_NAME = "Multi Week Loans";
+  const TAB = new GoogleSheetTabs(TAB_NAME);
+  const NUM_OF_PAYMENTS_COL = TAB.GetCol("Number of Repayments")
+  const LOANEE_COL = TAB.GetCol("Loanee")
+  const REPAYMENT_COL = TAB.GetCol("Repayment Amount")
+  const PURCHASE_COL = TAB.GetCol("Purchase Date")
+  const ROUND_UP_COL = TAB.GetCol("Round Up?")
+  const REPAYMENT_DATE_COL = TAB.GetCol("Repayment Date")
+  let last_row_index = 0
 
-function SetDateToNextWeds(date: Date) {
-  while (date.getUTCDay() !== 3) {
-    date.setUTCDate(date.getUTCDate() + 1);
+  if (!NUM_OF_PAYMENTS_COL || !LOANEE_COL || !REPAYMENT_COL || !PURCHASE_COL || !ROUND_UP_COL || !REPAYMENT_DATE_COL) { return }
+
+  const LAST_ROW = NUM_OF_PAYMENTS_COL.find(cell => {
+    const cell_num = Number(cell)
+    return !isNaN(cell_num) && cell_num > 0
+  })
+
+  if (LAST_ROW === undefined) { return }
+
+  last_row_index = NUM_OF_PAYMENTS_COL.indexOf(LAST_ROW)
+
+  const NUM_OF_REPAYMENTS = Number(NUM_OF_PAYMENTS_COL[last_row_index])
+  const PURCHASE_DATE = new Date()
+  const LOANEE = LOANEE_COL[last_row_index]
+  let installment = Number(REPAYMENT_COL[last_row_index]) / NUM_OF_REPAYMENTS
+  let payment_days = LOANEE === "Dan" ? 14 : 7
+  let payment_start_date = new Date(REPAYMENT_DATE_COL[last_row_index])
+
+  if (ROUND_UP_COL[last_row_index] === "Yes") {
+    installment = Math.ceil(installment)
   }
-  return date;
-}
 
-function SetDateToNextFri(year: number) {
-  return function (date: Date) {
-    while (date.getUTCDay() !== 5) {
-      date.setUTCDate(date.getUTCDate() + 1);
-    }
-    if (year === date.getUTCFullYear()) {
-      date.setUTCDate(date.getUTCDate() + 7);
-    }
-    return date;
-  };
+  for (let i = last_row_index; i < last_row_index + NUM_OF_REPAYMENTS; i++) {
+    if (i >= NUM_OF_PAYMENTS_COL.length) { NUM_OF_PAYMENTS_COL.push("") }
+    if (i >= LOANEE_COL.length) { LOANEE_COL.push("") }
+    if (i >= REPAYMENT_COL.length) { REPAYMENT_COL.push("") }
+    if (i >= PURCHASE_COL.length) { PURCHASE_COL.push("") }
+    if (i >= ROUND_UP_COL.length) { ROUND_UP_COL.push("") }
+    if (i >= REPAYMENT_DATE_COL.length) { REPAYMENT_DATE_COL.push("") }
+
+    NUM_OF_PAYMENTS_COL[i] = ""
+    LOANEE_COL[i] = LOANEE
+    REPAYMENT_COL[i] = installment
+    PURCHASE_COL[i] = __CreateDateString(PURCHASE_DATE)
+    REPAYMENT_DATE_COL[i] = __CreateDateString(payment_start_date)
+
+    payment_start_date.setDate(payment_start_date.getDate() + payment_days)
+  }
+
+  TAB.WriteCol("Number of Repayments", NUM_OF_PAYMENTS_COL.map(cell => cell === "Number of Repayments" ? cell : ""))
+  TAB.WriteCol("Loanee", LOANEE_COL)
+  TAB.WriteCol("Repayment Amount", REPAYMENT_COL)
+  TAB.WriteCol("Purchase Date", PURCHASE_COL)
+  TAB.WriteCol("Round Up?", ROUND_UP_COL)
+  TAB.WriteCol("Repayment Date", REPAYMENT_DATE_COL)
+  TAB.SaveToTab()  
 }
 
 function ComputeMonthlyIncome() {
@@ -234,8 +285,8 @@ function ComputeMonthlyIncome() {
     }
   );
 
-  ROS_PAY_DAY.SetPayoutDate(SetDateToNextWeds);
-  MY_PAY_DAY.SetPayoutDate(SetDateToNextFri(cur_year - 1));
+  ROS_PAY_DAY.SetPayoutDate(__SetDateToNextWeds);
+  MY_PAY_DAY.SetPayoutDate(__SetDateToNextFri(cur_year - 1));
 
   while (Boolean(tab)) {
     let total = 0;
@@ -270,7 +321,7 @@ function ComputeMonthlyIncome() {
           total += MY_PAY_DAY.PayOut();
         }
       }
-      total = AddToFixed(total, 0);
+      total = __AddToFixed(total, 0);
       const MONTH_INDEX = BUDGET_MONTHS.indexOf(MONTH);
       BUDGET_DATA[0][MONTH_INDEX] = total;
       total = 0;
@@ -283,268 +334,49 @@ function ComputeMonthlyIncome() {
   }
 }
 
-function CreateDateString(date: Date | string, local: boolean = false) {
-  if (typeof date === "string") {
-    date = new Date(date);
-  }
+function AddMultiWeekLoanToRepayment() {
+  const ONE_WEEK_TAB = new GoogleSheetTabs("One Week Loans");
+  const MULTI_WEEK_TAB = new GoogleSheetTabs("Multi Week Loans");
+  const DATE_MAP = new Map<string, number>();
 
-  let date_str = `${
-    date.getUTCMonth() + 1
-  }/${date.getUTCDate()}/${date.getUTCFullYear()}`;
+  const MULTI_DUE_DATE_COL = MULTI_WEEK_TAB.GetHeaderIndex("Repayment Date");
+  const MULTI_PURCHASE_DATE_COL = MULTI_WEEK_TAB.GetHeaderIndex("Purchase Date");
+  const MULTI_PAYMENT_AMT_COL = MULTI_WEEK_TAB.GetHeaderIndex("Repayment Amount");
+  if(!MULTI_DUE_DATE_COL || !MULTI_PURCHASE_DATE_COL || !MULTI_PAYMENT_AMT_COL) { return }
 
-  if (local) {
-    date_str = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
-  }
+  const ONE_DUE_DATE_COL = ONE_WEEK_TAB.GetHeaderIndex("Due Date");
+  const ONE_PURCHASE_DATE_COL = ONE_WEEK_TAB.GetHeaderIndex("Purchase Date");
+  const ONE_PAYMENT_AMT_COL = ONE_WEEK_TAB.GetHeaderIndex("Amount");
+  if(!ONE_DUE_DATE_COL || !ONE_PURCHASE_DATE_COL || !ONE_PAYMENT_AMT_COL) { return }
 
-  return date_str;
-}
-
-function GetFirstNonEmptyCellInCol(
-  tab: GoogleAppsScript.Spreadsheet.Sheet,
-  Col: () => number
-) {
-  const TBL = tab.getDataRange().getValues();
-  let i = 1;
-
-  while (i < TBL.length && TBL[i][Col()] === "") {
-    i++;
-  }
-
-  return i + 1;
-}
-
-function GenerateRepaymentSchedule() {
-  const TAB_NAME = "Multi Week Loans";
-  const TAB = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TAB_NAME);
-
-  if (!TAB) {
-    return;
-  }
-
-  const HEADERS = TAB.getRange(1, 1, 1, TAB.getLastColumn()).getValues()[0];
-  const HEADER_COL_CACHE = new Map<string, string>();
-
-  const GetCachedCol = (header: string) => {
-    if (!HEADER_COL_CACHE.has(header)) {
-      HEADER_COL_CACHE.set(header, IndexToColLetter(HEADERS.indexOf(header)));
-    }
-    return HEADER_COL_CACHE.get(header)!;
-  }
-
-  const RepaymentCol = (row: number) => `${GetCachedCol("Repayment Date")}${row}`;
-  const AmountCol = (row: number) => `${GetCachedCol("Repayment Amount")}${row}`;
-  const LoaneeCol = (row: number) => `${GetCachedCol("Loanee")}${row}`;
-  const RoundUpCol = (row: number) => `${GetCachedCol("Round Up?")}${row}`;
-  const NumOfPaymentsCol = (row: number) => `${GetCachedCol("Number of Repayments")}${row}`;
-  const PurchaseDateCol = (row: number) => `${GetCachedCol("Purchase Date")}${row}`;
-
-  const LAST_ROW = GetFirstNonEmptyCellInCol(TAB, () => HEADERS.indexOf("Number of Repayments"));
-  const REPAYMENTS = Number(
-    TAB.getRange(NumOfPaymentsCol(LAST_ROW)).getValue()
-  );
-
-  if (isNaN(REPAYMENTS) || REPAYMENTS === 0) {
-    return;
-  }
-
-  const AMOUNT = TAB.getRange(AmountCol(LAST_ROW)).getValue() / REPAYMENTS;
-  const LOANEE = TAB.getRange(LoaneeCol(LAST_ROW)).getValue();
-  const SHOULD_ROUND_UP = TAB.getRange(RoundUpCol(LAST_ROW)).getValue();
-  let repayment_date = new Date(
-    TAB.getRange(RepaymentCol(LAST_ROW)).getValue()
-  );
-
-  let repayment_intraval = 7;
-  if (LOANEE === "Dan") {
-    repayment_intraval = 14;
-  }
-
-  TAB.getRange(NumOfPaymentsCol(LAST_ROW)).setValue("");
-  TAB.getRange(RepaymentCol(LAST_ROW)).setValue("");
-  const TODAY = new Date();
-
-  for (let i = 0; i < REPAYMENTS; i++) {
-    const PURCHASE_RANGE = TAB.getRange(PurchaseDateCol(LAST_ROW + i));
-    TAB.getRange(RepaymentCol(LAST_ROW + i)).setValue(
-      CreateDateString(repayment_date)
-    );
-    PURCHASE_RANGE.setValue(
-      PURCHASE_RANGE.getValue() === "" ? CreateDateString(TODAY, true) : PURCHASE_RANGE.getValue()
-    );
-    TAB.getRange(AmountCol(LAST_ROW + i)).setValue(
-      SHOULD_ROUND_UP === "Yes" ? Math.ceil(AMOUNT) : AddToFixed(AMOUNT, 0)
-    );
-    TAB.getRange(LoaneeCol(LAST_ROW + i)).setValue(LOANEE);
-    repayment_date.setUTCDate(repayment_date.getUTCDate() + repayment_intraval);
-  }
-}
-
-function CreateNewHouseholdBudgetTab() {
-  const HOUSE_HOLD_BUDGET_TAB_NAME = "Household Budget";
-  let date_year = new Date().getUTCFullYear();
-
-  const SHEET = SpreadsheetApp.getActiveSpreadsheet();
-  const BUDGET_TEMPLATE = SHEET.getSheetByName(
-    `${HOUSE_HOLD_BUDGET_TAB_NAME} Template`
-  );
-
-  if (!BUDGET_TEMPLATE) {
-    return;
-  }
-
-  while (SHEET.getSheetByName(`${HOUSE_HOLD_BUDGET_TAB_NAME} ${date_year}`)) {
-    date_year++;
-  }
-
-  const NEW_TAB = SHEET.insertSheet(
-    `${HOUSE_HOLD_BUDGET_TAB_NAME} ${date_year}`
-  );
-
-  for (let i = 1; i <= BUDGET_TEMPLATE.getLastColumn(); i++) {
-    for (let j = 1; j <= BUDGET_TEMPLATE.getLastRow(); j++) {
-      const TEMPLATE_CELL = BUDGET_TEMPLATE.getRange(j, i);
-      let new_cell = NEW_TAB.getRange(j, i);
-      const CELL_FORMULA = TEMPLATE_CELL.getFormula();
-      const CELL_VALUE = TEMPLATE_CELL.getValue();
-      const IS_MERGED = TEMPLATE_CELL.getMergedRanges().length > 0;
-
-      if (IS_MERGED && i % 2 !== 0) {
-        continue;
-      }
-
-      if (IS_MERGED) {
-        new_cell = NEW_TAB.getRange(
-          TEMPLATE_CELL.getMergedRanges()[0].getA1Notation()
-        );
-        new_cell.merge();
-      }
-
-      if (CELL_FORMULA !== "") {
-        new_cell.setFormula(CELL_FORMULA);
-      } else {
-        new_cell.setValue(CELL_VALUE);
-      }
-
-      TEMPLATE_CELL.copyTo(
-        new_cell,
-        SpreadsheetApp.CopyPasteType.PASTE_FORMAT,
-        false
-      );
-    }
-    NEW_TAB.autoResizeColumn(i);
-  }
-
-  NEW_TAB.setFrozenRows(3);
-  NEW_TAB.setFrozenColumns(1);
-}
-
-/**
- * @returns {boolean} checks if date1 is greater than date2
- */
-function CompareDates(date1: Date | string, date2: Date | string) {
-  date1 = new Date(CreateDateString(date1))
-  date2 = new Date(CreateDateString(date2))
-  return date1.getTime() > date2.getTime()
-}
-
-function GroupByDate(date_header: string, tab_name: string, shade_red: boolean = true) {
-    const TAB = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tab_name);
-
-    if (!TAB) { return; } 
-
-    const InsertGroupingRow = function(row: number, date: string, arr: any[][]) {
-        const NEW_ROW = new Array(arr[0].length).fill("")
-        NEW_ROW[PURCHASE_LOCATION_INDEX] = `${PURCHASE_HEADER} ${date}`
-        NEW_ROW[CARD_INDEX] = " "
-        arr.splice(row, 0, NEW_ROW)
-    }
-
-    let range_data = TAB.getDataRange().getValues();
-    const DATE_COL_INDEX = range_data[0].indexOf(date_header);
-    const PURCHASE_LOCATION_INDEX = range_data[0].indexOf("Purchase Location");
-    const CARD_INDEX = range_data[0].indexOf("Card");
-
-    const DATA = range_data.filter(row => !row[PURCHASE_LOCATION_INDEX].toString().includes(PURCHASE_HEADER))
-
-    if (DATE_COL_INDEX === -1) { return; }
-
-    InsertGroupingRow(1, CreateDateString(DATA[1][DATE_COL_INDEX]), DATA)
-
-
-    const DATE_MAP = new Map<string, number[]>();
-    let last_recorded_date = ""
-
-    for (let col = 2; col < DATA.length; col++) {
-        const row = DATA[col]
-        const NEW_DATE = CreateDateString(row[DATE_COL_INDEX])
-
-        if (row[DATE_COL_INDEX] === "") { continue }
-
-        if (!DATE_MAP.has(NEW_DATE)) {
-            DATE_MAP.set(NEW_DATE, [col+1])
-
-            if (last_recorded_date === "") {
-                last_recorded_date = NEW_DATE
-            } else {
-                DATE_MAP.get(last_recorded_date)!.push(col)
-                InsertGroupingRow(col, CreateDateString(row[DATE_COL_INDEX]), DATA)
-                last_recorded_date = NEW_DATE
-            }
-        }
-    }
-    TAB.getRange(1, 1, DATA.length, DATA[0].length).setValues(DATA)
-
-    DATE_MAP.clear()
+  const __GetDateIndex = function (date: string) {
     let i = 0
-    for (const ROW of DATA) {
-        const DATE = new Date(ROW[DATE_COL_INDEX])
-        if (DATE.toString() === "Invalid Date") { 
-            i++
-            continue 
-        }
+    const ROW = ONE_WEEK_TAB.FindRow(row => {
+      i++
+      return row[ONE_DUE_DATE_COL] === date
+    })
 
-        const DATE_STR = CreateDateString(DATE)
-        if (!DATE_MAP.has(DATE_STR)) {
-            DATE_MAP.set(DATE_STR, [i, 0, DATE.getUTCFullYear(), DATE.getUTCMonth(), DATE.getUTCDate()])
-            i++
-            continue
-        }
+    if (!ROW) { return -1 }
+    return i
+  }
 
-        DATE_MAP.get(DATE_STR)![1]++
-        i++
-    }
+  for(let i = 1; i < MULTI_WEEK_TAB.NumberOfRows(); i++) {
+    const ROW = MULTI_WEEK_TAB.GetRow(i)
+    if (!ROW) { continue }
 
-    i = 0
-    const LIGHT_RED_SHADES = ["#FF7F7F", "#FF9F9F"]
-    for(let [key, val] of DATE_MAP) {
-        let start = val[0]+1
-        let end = start + val[1] + 1
-        const DUE_DATE = new Date(val[2], val[3], val[4])
-        const CUR_DATE = new Date()
+    const DUE_DATE = String(ROW[MULTI_DUE_DATE_COL])
+    const INDEX = __GetDateIndex(DUE_DATE)
+    if (INDEX === -1) { continue }
+    if (ROW[MULTI_DUE_DATE_COL] === "") { continue }
 
-        const RANGE = TAB.getRange(start, 1, end-start, TAB.getLastColumn())
-        const COLOR_RANGE = TAB.getRange(start-1, 1, end-start, TAB.getLastColumn())
-        const DUE_DATE_PAST = CompareDates(CUR_DATE, DUE_DATE)
-        
-        if (DUE_DATE_PAST && shade_red) {
-            COLOR_RANGE.setBackground(LIGHT_RED_SHADES[i++ % 2])
-        }
+    const NEW_ROW = new Array<string | number>()
+    NEW_ROW[ONE_DUE_DATE_COL] = DUE_DATE
+    NEW_ROW[ONE_PURCHASE_DATE_COL] = ROW[MULTI_PURCHASE_DATE_COL]
+    NEW_ROW[ONE_PAYMENT_AMT_COL] = ROW[MULTI_PAYMENT_AMT_COL]
+    ONE_WEEK_TAB.InsertRow(INDEX, NEW_ROW)
+  }
 
-        try {
-            const GROUP = TAB.getRowGroup(start, 1)
-            if (DUE_DATE_PAST) { 
-                GROUP?.collapse() 
-            }
-            else {
-                GROUP?.remove()
-                RANGE.shiftRowGroupDepth(1)
-            }
-        }
-        catch {
-            RANGE.shiftRowGroupDepth(1)
-        }
-    }
-
+  ONE_WEEK_TAB.SaveToTab()
 }
 
 function onEdit(_: unknown) {
@@ -556,11 +388,11 @@ function onOpen(_: unknown) {
   const UI = SpreadsheetApp.getUi();
   UI.createMenu("Budgeting")
     .addItem("Create New Household Budget Tab", "CreateNewHouseholdBudgetTab")
+    .addItem("Compute One Week Loans", "ComputeTotal")
     .addToUi();
-}
 
-function onOpenInstallable(_: unknown) {
+  //AddMultiWeekLoanToRepayment()
   ComputeMonthlyIncome();
-  GroupByDate("Due Date", "One Week Loans")
-  GroupByDate("Purchase Date", "Multi Week Loans", false)
+  GroupByDate("Due Date", "One Week Loans");
+  GroupByDate("Purchase Date", "Multi Week Loans", false);
 }
