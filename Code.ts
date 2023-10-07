@@ -88,13 +88,12 @@ function GroupByDate(
       }
 
       try {
-        const GROUP = TAB.GetTab().getRowGroup(val[0], 1)
+        let GROUP = TAB.GetTab().getRowGroup(val[0], 1)
+        GROUP?.remove()
+        GROUP_RANGE.shiftRowGroupDepth(1)
+        GROUP = TAB.GetTab().getRowGroup(val[0], 1)
         if (DUE_DATE_HAS_PASSED) {
           GROUP?.collapse()
-        }
-        else {
-          GROUP?.remove()
-          GROUP_RANGE.shiftRowGroupDepth(1)
         }
       } catch {
         GROUP_RANGE.shiftRowGroupDepth(1)
@@ -158,16 +157,16 @@ function ComputeTotal() {
 
     if (i + 1 === SHEET.NumberOfRows()) {
       if (last_recorded_date !== DUE_DATE) {
-        TOTAL_INDEX[last_amt] = __AddToFixed(total, __FindMultiWeekRepayment(last_recorded_date), Math.ceil)
+        TOTAL_INDEX[last_amt] = __AddToFixed(total, 0, Math.ceil)
         TOTAL_INDEX[i] = AMOUNT
       }
       else {
-        TOTAL_INDEX[i] = __AddToFixed(__AddToFixed(total, AMOUNT), __FindMultiWeekRepayment(DUE_DATE), Math.ceil)
+        TOTAL_INDEX[i] = __AddToFixed(total, AMOUNT, Math.ceil)
       }
     }
     else if (last_recorded_date === "" || last_recorded_date !== DUE_DATE) {
       if (last_recorded_date !== "") { 
-        TOTAL_INDEX[last_amt] = __AddToFixed(total, __FindMultiWeekRepayment(last_recorded_date), Math.ceil)
+        TOTAL_INDEX[last_amt] = __AddToFixed(total, 0, Math.ceil)
       }
       last_recorded_date = DUE_DATE;
       total = AMOUNT;
@@ -247,7 +246,9 @@ function GenerateRepaymentSchedule() {
   TAB.WriteCol("Purchase Date", PURCHASE_COL)
   TAB.WriteCol("Round Up?", ROUND_UP_COL)
   TAB.WriteCol("Repayment Date", REPAYMENT_DATE_COL)
-  TAB.SaveToTab()  
+  TAB.SaveToTab()
+
+  AddMultiWeekLoanToRepayment()
 }
 
 function ComputeMonthlyIncome() {
@@ -337,51 +338,102 @@ function ComputeMonthlyIncome() {
 function AddMultiWeekLoanToRepayment() {
   const ONE_WEEK_TAB = new GoogleSheetTabs("One Week Loans");
   const MULTI_WEEK_TAB = new GoogleSheetTabs("Multi Week Loans");
-  const DATE_MAP = new Map<string, number>();
 
   const MULTI_DUE_DATE_COL = MULTI_WEEK_TAB.GetHeaderIndex("Repayment Date");
   const MULTI_PURCHASE_DATE_COL = MULTI_WEEK_TAB.GetHeaderIndex("Purchase Date");
   const MULTI_PAYMENT_AMT_COL = MULTI_WEEK_TAB.GetHeaderIndex("Repayment Amount");
-  if(!MULTI_DUE_DATE_COL || !MULTI_PURCHASE_DATE_COL || !MULTI_PAYMENT_AMT_COL) { return }
+  const MULTI_PURCHASE_LOCATION_COL = MULTI_WEEK_TAB.GetHeaderIndex("Purchase Location");
+  if (
+    MULTI_DUE_DATE_COL === -1
+    || MULTI_PURCHASE_DATE_COL === -1
+    || MULTI_PAYMENT_AMT_COL === -1
+    || MULTI_PURCHASE_LOCATION_COL === -1
+  ) { 
+    return
+  }
 
   const ONE_DUE_DATE_COL = ONE_WEEK_TAB.GetHeaderIndex("Due Date");
   const ONE_PURCHASE_DATE_COL = ONE_WEEK_TAB.GetHeaderIndex("Purchase Date");
   const ONE_PAYMENT_AMT_COL = ONE_WEEK_TAB.GetHeaderIndex("Amount");
-  if(!ONE_DUE_DATE_COL || !ONE_PURCHASE_DATE_COL || !ONE_PAYMENT_AMT_COL) { return }
+  const ONE_PURCHASE_LOCATION_COL = ONE_WEEK_TAB.GetHeaderIndex("Purchase Location");
+  if (
+    ONE_DUE_DATE_COL === -1
+    || ONE_PURCHASE_DATE_COL === -1
+    || ONE_PAYMENT_AMT_COL === -1
+    || ONE_PURCHASE_LOCATION_COL === -1
+  ) { 
+      return
+  }
 
   const __GetDateIndex = function (date: string) {
     let i = 0
+    let ret = new Array<number>()
     const ROW = ONE_WEEK_TAB.FindRow(row => {
-      i++
-      return row[ONE_DUE_DATE_COL] === date
+      const FOUND = row[ONE_DUE_DATE_COL] === date
+      i += Number(!FOUND)
+      return FOUND
     })
 
-    if (!ROW) { return -1 }
-    return i
+    if (!ROW) { return [-1, -1] }
+
+    ret.push(i)
+
+    while(true) {
+      const ROW = ONE_WEEK_TAB.GetRow(i)
+      if (!ROW) { break }
+      if (ROW[ONE_DUE_DATE_COL] !== date) { break }
+      i++
+    }
+
+    ret.push(--i)
+
+    return ret
   }
+
+  const __HasMultiWeekRepayment = function (begin: number, end: number, purchase: string) {
+    let has_repayment = false
+    for (let i = begin; i <= end; i++) {
+      const ROW = ONE_WEEK_TAB.GetRow(i)
+      if (!ROW) { continue }
+      if (ROW[ONE_PURCHASE_LOCATION_COL] === purchase) {
+        has_repayment = true
+        break
+      }
+    }
+    return has_repayment
+  }
+
+  let purchase_location = ""
 
   for(let i = 1; i < MULTI_WEEK_TAB.NumberOfRows(); i++) {
     const ROW = MULTI_WEEK_TAB.GetRow(i)
     if (!ROW) { continue }
 
     const DUE_DATE = String(ROW[MULTI_DUE_DATE_COL])
-    const INDEX = __GetDateIndex(DUE_DATE)
-    if (INDEX === -1) { continue }
-    if (ROW[MULTI_DUE_DATE_COL] === "") { continue }
+    const [START_INDEX, END_INDEX] = __GetDateIndex(DUE_DATE)
+
+    if (DUE_DATE === "") { continue }
+    if (ROW[MULTI_PURCHASE_LOCATION_COL] !== "" ) { purchase_location = String(ROW[MULTI_PURCHASE_LOCATION_COL]) }
+    if (__HasMultiWeekRepayment(START_INDEX, END_INDEX, purchase_location)) { continue }
 
     const NEW_ROW = new Array<string | number>()
     NEW_ROW[ONE_DUE_DATE_COL] = DUE_DATE
     NEW_ROW[ONE_PURCHASE_DATE_COL] = ROW[MULTI_PURCHASE_DATE_COL]
     NEW_ROW[ONE_PAYMENT_AMT_COL] = ROW[MULTI_PAYMENT_AMT_COL]
-    ONE_WEEK_TAB.InsertRow(INDEX, NEW_ROW)
+    NEW_ROW[ONE_PURCHASE_LOCATION_COL] = purchase_location
+    if (END_INDEX > -1) {
+      ONE_WEEK_TAB.InsertRow(END_INDEX, NEW_ROW)
+    } else {
+      ONE_WEEK_TAB.AppendRow(NEW_ROW)
+    }
   }
 
   ONE_WEEK_TAB.SaveToTab()
 }
 
 function onEdit(_: unknown) {
-  ComputeTotal();
   GenerateRepaymentSchedule();
+  ComputeTotal();
 }
 
 function onOpen(_: unknown) {
@@ -391,8 +443,9 @@ function onOpen(_: unknown) {
     .addItem("Compute One Week Loans", "ComputeTotal")
     .addToUi();
 
-  //AddMultiWeekLoanToRepayment()
+  AddMultiWeekLoanToRepayment()
   ComputeMonthlyIncome();
   GroupByDate("Due Date", "One Week Loans");
   GroupByDate("Purchase Date", "Multi Week Loans", false);
+  ComputeTotal();
 }
