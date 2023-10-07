@@ -343,11 +343,13 @@ function AddMultiWeekLoanToRepayment() {
   const MULTI_PURCHASE_DATE_COL = MULTI_WEEK_TAB.GetHeaderIndex("Purchase Date");
   const MULTI_PAYMENT_AMT_COL = MULTI_WEEK_TAB.GetHeaderIndex("Repayment Amount");
   const MULTI_PURCHASE_LOCATION_COL = MULTI_WEEK_TAB.GetHeaderIndex("Purchase Location");
+  const MULTI_CARD_COL = MULTI_WEEK_TAB.GetHeaderIndex("Card");
   if (
     MULTI_DUE_DATE_COL === -1
     || MULTI_PURCHASE_DATE_COL === -1
     || MULTI_PAYMENT_AMT_COL === -1
     || MULTI_PURCHASE_LOCATION_COL === -1
+    || MULTI_CARD_COL === -1
   ) { 
     return
   }
@@ -356,16 +358,18 @@ function AddMultiWeekLoanToRepayment() {
   const ONE_PURCHASE_DATE_COL = ONE_WEEK_TAB.GetHeaderIndex("Purchase Date");
   const ONE_PAYMENT_AMT_COL = ONE_WEEK_TAB.GetHeaderIndex("Amount");
   const ONE_PURCHASE_LOCATION_COL = ONE_WEEK_TAB.GetHeaderIndex("Purchase Location");
+  const ONE_CARD_COL = ONE_WEEK_TAB.GetHeaderIndex("Card");
   if (
     ONE_DUE_DATE_COL === -1
     || ONE_PURCHASE_DATE_COL === -1
     || ONE_PAYMENT_AMT_COL === -1
     || ONE_PURCHASE_LOCATION_COL === -1
+    || ONE_CARD_COL === -1
   ) { 
       return
   }
 
-  const __GetDateIndex = function (date: string) {
+  const __GetDateRangeBoundries = function (date: string) {
     let i = 0
     let ret = new Array<number>()
     const ROW = ONE_WEEK_TAB.FindRow(row => {
@@ -404,16 +408,18 @@ function AddMultiWeekLoanToRepayment() {
   }
 
   let purchase_location = ""
+  let card = ""
 
   for(let i = 1; i < MULTI_WEEK_TAB.NumberOfRows(); i++) {
     const ROW = MULTI_WEEK_TAB.GetRow(i)
     if (!ROW) { continue }
 
     const DUE_DATE = String(ROW[MULTI_DUE_DATE_COL])
-    const [START_INDEX, END_INDEX] = __GetDateIndex(DUE_DATE)
+    const [START_INDEX, END_INDEX] = __GetDateRangeBoundries(DUE_DATE)
 
     if (DUE_DATE === "") { continue }
     if (ROW[MULTI_PURCHASE_LOCATION_COL] !== "" ) { purchase_location = String(ROW[MULTI_PURCHASE_LOCATION_COL]) }
+    if (ROW[MULTI_CARD_COL] !== "" ) { card = String(ROW[MULTI_CARD_COL]) }
     if (__HasMultiWeekRepayment(START_INDEX, END_INDEX, purchase_location)) { continue }
 
     const NEW_ROW = new Array<string | number>()
@@ -421,6 +427,7 @@ function AddMultiWeekLoanToRepayment() {
     NEW_ROW[ONE_PURCHASE_DATE_COL] = ROW[MULTI_PURCHASE_DATE_COL]
     NEW_ROW[ONE_PAYMENT_AMT_COL] = ROW[MULTI_PAYMENT_AMT_COL]
     NEW_ROW[ONE_PURCHASE_LOCATION_COL] = purchase_location
+    NEW_ROW[ONE_CARD_COL] = card
     if (END_INDEX > -1) {
       ONE_WEEK_TAB.InsertRow(END_INDEX, NEW_ROW)
     } else {
