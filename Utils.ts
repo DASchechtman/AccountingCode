@@ -2,20 +2,7 @@ class PayDay {
   private pay_out_amt: number;
   private pay_date: Date;
   private ShouldPayOut: CheckPayOut;
-  private months = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
+  private months: string[]
   private day_inc = 7;
   private total_days = 0;
 
@@ -23,6 +10,7 @@ class PayDay {
     this.pay_out_amt = pay_out_amt;
     this.ShouldPayOut = ShouldPayOut;
     this.pay_date = new Date(pay_date);
+    this.months = MONTHS
   }
 
   public SetPayoutDate(PayOutDate: (date: Date) => Date) {
@@ -145,7 +133,7 @@ class GoogleSheetTabs {
 
     public WriteRow(row_index: number, row: DataArrayEntry) {
         if (row_index < 0 || row_index >= this.data.length) { return }
-        this.data[row_index] = row
+        this.data[row_index] = this.CreateRowCopy(row)
     }
 
     public AppendRow(row: DataArrayEntry) {

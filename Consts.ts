@@ -5,3 +5,4 @@ type DataArray = Array<Array<string | number>>;
 type DataArrayEntry = Array<string | number>;
 
 const PURCHASE_HEADER = "Purchases for"
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
