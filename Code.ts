@@ -251,76 +251,6 @@ function GenerateRepaymentSchedule() {
   AddMultiWeekLoanToRepayment()
 }
 
-function ComputeMonthlyIncome() {
-  let cur_year = new Date().getUTCFullYear();
-  const TAB_NAME = "Household Budget";
-  let tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(
-    `${TAB_NAME} ${cur_year}`
-  );
-  let start_date = new Date(`12/28/${cur_year - 1}`);
-
-  const ROS_PAY_DAY = new PayDay(350.95, start_date, (_, __, ___) => {
-    return true;
-  });
-
-  const MY_PAY_DAY = new PayDay(
-    880.78,
-    start_date,
-    (_, total_days, day_inc) => {
-      const SHOULD_PAY = total_days % (day_inc * 2) === 0;
-      return SHOULD_PAY;
-    }
-  );
-
-  ROS_PAY_DAY.SetPayoutDate(__SetDateToNextWeds);
-  MY_PAY_DAY.SetPayoutDate(__SetDateToNextFri(cur_year - 1));
-
-  while (Boolean(tab)) {
-    let total = 0;
-    const BUDGET_DATA = tab!
-      .getRange(1, 1, 2, tab!.getLastColumn())
-      .getValues();
-    const BUDGET_MONTHS = BUDGET_DATA[1];
-    const PRESENT_MONTHS = BUDGET_MONTHS.filter((x) => MONTHS.includes(x));
-
-    let my_pay_day_month = PRESENT_MONTHS.includes(MY_PAY_DAY.PayMonth());
-    let ros_pay_day_month = PRESENT_MONTHS.includes(ROS_PAY_DAY.PayMonth());
-    while (!my_pay_day_month || !ros_pay_day_month) {
-      if (!ros_pay_day_month) {
-        ROS_PAY_DAY.PayOut();
-      }
-      if (!my_pay_day_month) {
-        MY_PAY_DAY.PayOut();
-      }
-      ros_pay_day_month = PRESENT_MONTHS.includes(ROS_PAY_DAY.PayMonth());
-      my_pay_day_month = PRESENT_MONTHS.includes(MY_PAY_DAY.PayMonth());
-    }
-
-    for (const MONTH of PRESENT_MONTHS) {
-      while (
-        ROS_PAY_DAY.PayMonth() === MONTH ||
-        MY_PAY_DAY.PayMonth() === MONTH
-      ) {
-        if (ROS_PAY_DAY.PayMonth() === MONTH) {
-          total += ROS_PAY_DAY.PayOut();
-        }
-        if (MY_PAY_DAY.PayMonth() === MONTH) {
-          total += MY_PAY_DAY.PayOut();
-        }
-      }
-      total = __AddToFixed(total, 0);
-      const MONTH_INDEX = BUDGET_MONTHS.indexOf(MONTH);
-      BUDGET_DATA[0][MONTH_INDEX] = total;
-      total = 0;
-    }
-
-    tab!.getRange(1, 1, 2, tab!.getLastColumn()).setValues(BUDGET_DATA);
-    tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(
-      `${TAB_NAME} ${++cur_year}`
-    );
-  }
-}
-
 function AddMultiWeekLoanToRepayment() {
   const ONE_WEEK_TAB = new GoogleSheetTabs("One Week Loans");
   const MULTI_WEEK_TAB = new GoogleSheetTabs("Multi Week Loans");
@@ -429,7 +359,7 @@ function AddMultiWeekLoanToRepayment() {
   ONE_WEEK_TAB.SaveToTab()
 }
 
-function ComputeMonthlyIncome2() {
+function ComputeMonthlyIncome() {
   let cur_year = new Date().getUTCFullYear();
   const TAB_NAME = "Household Budget";
   let start_date = new Date(`12/28/${cur_year - 1}`);
@@ -505,7 +435,7 @@ function onOpen(_: unknown) {
     .addToUi();
 
   AddMultiWeekLoanToRepayment()
-  ComputeMonthlyIncome2();
+  ComputeMonthlyIncome();
   GroupByDate("Due Date", "One Week Loans");
   GroupByDate("Purchase Date", "Multi Week Loans", false);
   ComputeTotal();
