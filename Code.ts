@@ -193,12 +193,20 @@ function ComputeTotal() {
 function GenerateRepaymentSchedule() {
   const TAB_NAME = "Multi Week Loans";
   const TAB = new GoogleSheetTabs(TAB_NAME);
-  const NUM_OF_PAYMENTS_COL = TAB.GetCol("Number of Repayments")
-  const LOANEE_COL = TAB.GetCol("Loanee")
-  const REPAYMENT_COL = TAB.GetCol("Repayment Amount")
-  const PURCHASE_COL = TAB.GetCol("Purchase Date")
-  const ROUND_UP_COL = TAB.GetCol("Round Up?")
-  const REPAYMENT_DATE_COL = TAB.GetCol("Repayment Date")
+
+  const NUM_OF_REPAYMENT_COL_NAME = "Number of Repayments";
+  const LOANEE_COL_NAME = "Loanee";
+  const REPAYMENT_AMT_COL_NAME = "Repayment Amount";
+  const PURCHASE_COL_NAME = "Purchase Date";
+  const ROUND_UP_COL_NAME = "Round Up?";
+  const REPAYMENT_DATE_COL_NAME = "Repayment Date";
+
+  const NUM_OF_PAYMENTS_COL = TAB.GetCol(NUM_OF_REPAYMENT_COL_NAME)
+  const LOANEE_COL = TAB.GetCol(LOANEE_COL_NAME)
+  const REPAYMENT_COL = TAB.GetCol(REPAYMENT_AMT_COL_NAME)
+  const PURCHASE_COL = TAB.GetCol(PURCHASE_COL_NAME)
+  const ROUND_UP_COL = TAB.GetCol(ROUND_UP_COL_NAME)
+  const REPAYMENT_DATE_COL = TAB.GetCol(REPAYMENT_DATE_COL_NAME)
   let last_row_index = 0
 
   if (!NUM_OF_PAYMENTS_COL || !LOANEE_COL || !REPAYMENT_COL || !PURCHASE_COL || !ROUND_UP_COL || !REPAYMENT_DATE_COL) { return }
@@ -240,12 +248,12 @@ function GenerateRepaymentSchedule() {
     payment_start_date.setDate(payment_start_date.getDate() + payment_days)
   }
 
-  TAB.WriteCol("Number of Repayments", NUM_OF_PAYMENTS_COL.map(cell => cell === "Number of Repayments" ? cell : ""))
-  TAB.WriteCol("Loanee", LOANEE_COL)
-  TAB.WriteCol("Repayment Amount", REPAYMENT_COL)
-  TAB.WriteCol("Purchase Date", PURCHASE_COL)
-  TAB.WriteCol("Round Up?", ROUND_UP_COL)
-  TAB.WriteCol("Repayment Date", REPAYMENT_DATE_COL)
+  TAB.WriteCol(NUM_OF_REPAYMENT_COL_NAME, NUM_OF_PAYMENTS_COL.map(cell => cell === "Number of Repayments" ? cell : ""))
+  TAB.WriteCol(LOANEE_COL_NAME, LOANEE_COL)
+  TAB.WriteCol(REPAYMENT_AMT_COL_NAME, REPAYMENT_COL)
+  TAB.WriteCol(PURCHASE_COL_NAME, PURCHASE_COL)
+  TAB.WriteCol(ROUND_UP_COL_NAME, ROUND_UP_COL)
+  TAB.WriteCol(REPAYMENT_DATE_COL_NAME, REPAYMENT_DATE_COL)
   TAB.SaveToTab()
 
   AddMultiWeekLoanToRepayment()
@@ -364,11 +372,11 @@ function ComputeMonthlyIncome() {
   const TAB_NAME = "Household Budget";
   let start_date = new Date(`12/28/${cur_year - 1}`);
 
-  const __RosPayDay = function (date: Date, total_days: number, inc: number) {
+  const __RosPayDay = function (_: Date, __: number, ___: number) {
     return true
   }
 
-  const __DansPayDay = function (date: Date, total_days: number, inc: number) {
+  const __DansPayDay = function (_: Date, total_days: number, inc: number) {
     const SHOULD_PAY =  total_days % (inc * 2) === 0;
     return SHOULD_PAY;
   }
@@ -390,10 +398,10 @@ function ComputeMonthlyIncome() {
       if (!INCOME_ROW || !MONTH_ROW) { break }
 
       while (MONTH_ROW[1] !== ROS_PAY_DAY.PayMonth() || MONTH_ROW[1] !== MY_PAY_DAY.PayMonth()) {
-        const MONTH_1 = ROS_PAY_DAY.PayMonth()
-        const MONTH_2 = MY_PAY_DAY.PayMonth()
-        if (MONTH_ROW[1] !== MONTH_1) { ROS_PAY_DAY.PayOut() }
-        if (MONTH_ROW[1] !== MONTH_2) { MY_PAY_DAY.PayOut() }
+        const ROS_PAY_MONTH = ROS_PAY_DAY.PayMonth()
+        const MY_PAY_MONTH = MY_PAY_DAY.PayMonth()
+        if (MONTH_ROW[1] !== ROS_PAY_MONTH) { ROS_PAY_DAY.PayOut() }
+        if (MONTH_ROW[1] !== MY_PAY_MONTH) { MY_PAY_DAY.PayOut() }
       }
 
       for (let i = 1; i < MONTH_ROW.length; i++) {
@@ -422,21 +430,37 @@ function ComputeMonthlyIncome() {
   }
 }
 
+function CreateBudgetXYearsOut(years_offset: number) {
+  const CUR_YEAR = new Date().getUTCFullYear();
+  const FINAL_YEAR = CUR_YEAR + years_offset;
+
+  while (true) {
+    try {
+      new GoogleSheetTabs(`Household Budget ${FINAL_YEAR}`);
+      break
+    }
+    catch {
+      __CreateNewHouseholdBudgetTab()
+    }
+  }
+}
+
 function onEdit(_: unknown) {
   GenerateRepaymentSchedule();
   ComputeTotal();
 }
 
 function onOpen(_: unknown) {
-  const UI = SpreadsheetApp.getUi();
-  UI.createMenu("Budgeting")
-    .addItem("Create New Household Budget Tab", "CreateNewHouseholdBudgetTab")
-    .addItem("Compute One Week Loans", "ComputeTotal")
-    .addToUi();
-
   AddMultiWeekLoanToRepayment()
   ComputeMonthlyIncome();
   GroupByDate("Due Date", "One Week Loans");
   GroupByDate("Purchase Date", "Multi Week Loans", false);
   ComputeTotal();
+
+
+  const UI = SpreadsheetApp.getUi();
+  UI.createMenu("Budgeting")
+    .addItem("Create New Household Budget Tab", "__CreateNewHouseholdBudgetTab")
+    .addItem("Compute One Week Loans", "ComputeTotal")
+    .addToUi();
 }
