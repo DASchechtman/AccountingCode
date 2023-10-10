@@ -152,6 +152,9 @@ class GoogleSheetTabs {
           const TAB_ROW_RANGE = tab.GetRowRange(i)
           if (ROW_RANGE === undefined || TAB_ROW_RANGE === undefined) { continue }
           ROW_RANGE.copyTo(TAB_ROW_RANGE, SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false)
+        }
+
+        for (let i = 0; i < tab.data[0].length; i++) {
           tab.GetTab().autoResizeColumn(i+1)
           const width = tab.GetTab().getColumnWidth(i+1)
           tab.GetTab().setColumnWidth(i+1, width+25)
@@ -304,10 +307,45 @@ function __CreateBudgetTab() {
 
   budget_tab.GetTab().setFrozenRows(3);
   budget_tab.GetTab().setFrozenColumns(1);
+  return budget_tab
+}
+
+function __SetMonthDates(tab: GoogleSheetTabs) {
+  const DATES_ROW = tab.GetRow(2)
+  if (DATES_ROW === undefined) { return }
+
+  const YEAR = tab.GetTab().getName().split(" ")[2]
+  const START_END_DATES = [
+    ["12/28/", "1/27/"],
+    ["1/28/", "2/27/"],
+    ["2/28/", "3/27/"],
+    ["3/28/", "4/27/"],
+    ["4/28/", "5/27/"],
+    ["5/28/", "6/27/"],
+    ["6/28/", "7/27/"],
+    ["7/28/", "8/27/"],
+    ["8/28/", "9/27/"],
+    ["9/28/", "10/27/"],
+    ["10/28/", "11/27/"],
+    ["11/28/", "12/27/"],
+  ]
+  let i = 1
+
+  for (const DATES of START_END_DATES) {
+    let year_start = Number(YEAR)
+    let year_end = year_start
+    if (i === 1) { year_start-- }
+    DATES_ROW[i] = `${DATES[0]}${year_start}`
+    DATES_ROW[i+1] = `${DATES[1]}${year_end}`
+    i += 2
+  }
+  tab.WriteRow(2, DATES_ROW)
+  tab.SaveToTab()
 }
 
 function __CreateNewHouseholdBudgetTab() {
-  __CreateBudgetTab()
+  const TAB = __CreateBudgetTab()
+  __SetMonthDates(TAB)
   ComputeMonthlyIncome()
 }
 

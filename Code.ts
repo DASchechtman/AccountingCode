@@ -368,8 +368,9 @@ function AddMultiWeekLoanToRepayment() {
 }
 
 function ComputeMonthlyIncome() {
-  let cur_year = new Date().getUTCFullYear();
   const TAB_NAME = "Household Budget";
+  const START_CELL_INDEX = 1
+  let cur_year = new Date().getUTCFullYear();
   let start_date = new Date(`12/28/${cur_year - 1}`);
 
   const __RosPayDay = function (_: Date, __: number, ___: number) {
@@ -387,6 +388,26 @@ function ComputeMonthlyIncome() {
   const MY_PAY_DAY = new PayDay(880.78, start_date, __DansPayDay);
   MY_PAY_DAY.SetPayoutDate(__SetDateToNextFri(cur_year - 1));
 
+  const __SetCellToFormula = function(row: DataArrayEntry, cell_index: number, data: number) {
+    row[cell_index] = `${data}`
+    if (cell_index > 1) {
+      const COL_LETTER = __IndexToColLetter(cell_index-2)
+      row[cell_index] += `+IF(${COL_LETTER}24>0,${COL_LETTER}24,0)`
+    }
+    else {
+      try {
+        const LAST_SHEET_NAME = `${TAB_NAME} ${cur_year - 1}`
+        const PREV_TAB = new GoogleSheetTabs(LAST_SHEET_NAME);
+        const REMAINING_BUDGET_ROW = PREV_TAB.FindRow(row => row[0] === "Estimated Savings:")
+        if (REMAINING_BUDGET_ROW) {
+          row[cell_index] += `+'${LAST_SHEET_NAME}'!${__IndexToColLetter(REMAINING_BUDGET_ROW.length - 2)}24`
+        }
+      } catch {}
+    }
+
+    row[cell_index] = `=MIN(${row[cell_index]},5000)`
+  }
+
   while (true) {
     try {
       const TAB = new GoogleSheetTabs(`${TAB_NAME} ${cur_year}`);
@@ -397,14 +418,14 @@ function ComputeMonthlyIncome() {
       const MONTH_ROW = TAB.GetRow(1)?.map(x => String(x));
       if (!INCOME_ROW || !MONTH_ROW) { break }
 
-      while (MONTH_ROW[1] !== ROS_PAY_DAY.PayMonth() || MONTH_ROW[1] !== MY_PAY_DAY.PayMonth()) {
+      while (MONTH_ROW[START_CELL_INDEX] !== ROS_PAY_DAY.PayMonth() || MONTH_ROW[START_CELL_INDEX] !== MY_PAY_DAY.PayMonth()) {
         const ROS_PAY_MONTH = ROS_PAY_DAY.PayMonth()
         const MY_PAY_MONTH = MY_PAY_DAY.PayMonth()
-        if (MONTH_ROW[1] !== ROS_PAY_MONTH) { ROS_PAY_DAY.PayOut() }
-        if (MONTH_ROW[1] !== MY_PAY_MONTH) { MY_PAY_DAY.PayOut() }
+        if (MONTH_ROW[START_CELL_INDEX] !== ROS_PAY_MONTH) { ROS_PAY_DAY.PayOut() }
+        if (MONTH_ROW[START_CELL_INDEX] !== MY_PAY_MONTH) { MY_PAY_DAY.PayOut() }
       }
 
-      for (let i = 1; i < MONTH_ROW.length; i++) {
+      for (let i = START_CELL_INDEX; i < MONTH_ROW.length; i++) {
         if (MONTH_ROW[i] === "") { continue }
 
         let total = 0
@@ -418,7 +439,7 @@ function ComputeMonthlyIncome() {
           }
         }
 
-        INCOME_ROW[i] = total
+        __SetCellToFormula(INCOME_ROW, i, total)
       }
 
       TAB.WriteRow(0, INCOME_ROW)
@@ -426,21 +447,6 @@ function ComputeMonthlyIncome() {
       cur_year++
     } catch {
       break
-    }
-  }
-}
-
-function CreateBudgetXYearsOut(years_offset: number) {
-  const CUR_YEAR = new Date().getUTCFullYear();
-  const FINAL_YEAR = CUR_YEAR + years_offset;
-
-  while (true) {
-    try {
-      new GoogleSheetTabs(`Household Budget ${FINAL_YEAR}`);
-      break
-    }
-    catch {
-      __CreateNewHouseholdBudgetTab()
     }
   }
 }
