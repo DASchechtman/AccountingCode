@@ -48,7 +48,7 @@ function GroupByDate(
 
       if (last_recorded_date === "" || last_recorded_date !== NEW_DATE) {
         last_recorded_date = NEW_DATE;
-        TAB.InsertRow(i, [], __InsertGroupingRow(NEW_DATE));
+        TAB.InsertRow(i, [], { AlterRow: __InsertGroupingRow(NEW_DATE) });
       }
     }
   };
@@ -191,6 +191,7 @@ function ComputeTotal() {
 }
 
 function GenerateRepaymentSchedule() {
+  let generated_repayment_schedule = false
   const TAB_NAME = "Multi Week Loans";
   const TAB = new GoogleSheetTabs(TAB_NAME);
 
@@ -209,14 +210,15 @@ function GenerateRepaymentSchedule() {
   const REPAYMENT_DATE_COL = TAB.GetCol(REPAYMENT_DATE_COL_NAME)
   let last_row_index = 0
 
-  if (!NUM_OF_PAYMENTS_COL || !LOANEE_COL || !REPAYMENT_COL || !PURCHASE_COL || !ROUND_UP_COL || !REPAYMENT_DATE_COL) { return }
+  if (!NUM_OF_PAYMENTS_COL || !LOANEE_COL || !REPAYMENT_COL || !PURCHASE_COL || !ROUND_UP_COL || !REPAYMENT_DATE_COL) { return generated_repayment_schedule }
 
   const LAST_ROW = NUM_OF_PAYMENTS_COL.find(cell => {
     const cell_num = Number(cell)
     return !isNaN(cell_num) && cell_num > 0
   })
 
-  if (LAST_ROW === undefined) { return }
+  if (LAST_ROW === undefined) { return generated_repayment_schedule }
+  generated_repayment_schedule = true
 
   last_row_index = NUM_OF_PAYMENTS_COL.indexOf(LAST_ROW)
 
@@ -256,10 +258,11 @@ function GenerateRepaymentSchedule() {
   TAB.WriteCol(REPAYMENT_DATE_COL_NAME, REPAYMENT_DATE_COL)
   TAB.SaveToTab()
 
-  AddMultiWeekLoanToRepayment()
+  AddMultiWeekLoanToRepayment(last_row_index)
+  return generated_repayment_schedule
 }
 
-function AddMultiWeekLoanToRepayment() {
+function AddMultiWeekLoanToRepayment(start_row: number) {
   const ONE_WEEK_TAB = new GoogleSheetTabs("One Week Loans");
   const MULTI_WEEK_TAB = new GoogleSheetTabs("Multi Week Loans");
 
@@ -336,7 +339,7 @@ function AddMultiWeekLoanToRepayment() {
   let purchase_desc = ""
   let credit_card_name = ""
 
-  for(let i = 1; i < MULTI_WEEK_TAB.NumberOfRows(); i++) {
+  for(let i = start_row; i < MULTI_WEEK_TAB.NumberOfRows(); i++) {
     const ROW = MULTI_WEEK_TAB.GetRow(i)
     if (!ROW) { continue }
 
@@ -371,7 +374,8 @@ function ComputeMonthlyIncome() {
   const TAB_NAME = "Household Budget";
   const START_CELL_INDEX = 1
   let cur_year = new Date().getUTCFullYear();
-  let start_date = new Date(`12/28/${cur_year - 1}`);
+  const LAST_YEAR = cur_year - 1
+  let start_date = new Date(`12/28/${LAST_YEAR}`);
 
   const __RosPayDay = function (_: Date, __: number, ___: number) {
     return true
@@ -386,7 +390,7 @@ function ComputeMonthlyIncome() {
   ROS_PAY_DAY.SetPayoutDate(__SetDateToNextWeds);
 
   const MY_PAY_DAY = new PayDay(880.78, start_date, __DansPayDay);
-  MY_PAY_DAY.SetPayoutDate(__SetDateToNextFri(cur_year - 1));
+  MY_PAY_DAY.SetPayoutDate(__SetDateToNextFri(LAST_YEAR));
 
   const __SetCellToFormula = function(row: DataArrayEntry, cell_index: number, data: number) {
     row[cell_index] = `${data}`
@@ -451,22 +455,106 @@ function ComputeMonthlyIncome() {
   }
 }
 
-function onEdit(_: unknown) {
-  GenerateRepaymentSchedule();
-  ComputeTotal();
+function AddIncomeRow() {
+  const BUDGET_PLANNER_TAB = new GoogleSheetTabs(BUDGET_PLANNER_TAB_NAME)
+  const UI = SpreadsheetApp.getUi()
+  const YEAR_INPUT = UI.prompt("What year is this income for?", UI.ButtonSet.OK_CANCEL).getResponseText()
+  const INCOME_LABEL = UI.prompt("What is the income label?", UI.ButtonSet.OK_CANCEL).getResponseText()
+  const INCOME_YEAR = Number(YEAR_INPUT)
+
+  if (isNaN(INCOME_YEAR) || INCOME_LABEL === "") { 
+    let alert = ""
+    if (isNaN(INCOME_YEAR)) { 
+      alert = `Please enter a valid year instead of '${YEAR_INPUT}'`
+    }
+    else if (INCOME_LABEL === "") {
+      alert = "Please enter a valid income label"
+    }
+    UI.alert(alert)
+    return
+  }
+
+  const __AddValidationTo = function() {
+    const VALIDATION = SpreadsheetApp.newDataValidation().requireValueInList(PAYMENT_SCHEDULE).build()
+    
+    for (let i = 0; i < BUDGET_PLANNER_TAB.NumberOfRows(); i++) {
+      const ROW = BUDGET_PLANNER_TAB.GetRow(i)!
+      if (!isNaN(Number(ROW[0]))) {
+        BUDGET_PLANNER_TAB.GetRowRange(i)?.setDataValidation(null)
+        continue 
+      }
+
+      for (let j = 0; j < ROW.length; j++) {
+        if (j % 2 === 0) { continue }
+        const RANGE = BUDGET_PLANNER_TAB.GetTab().getRange(`${__IndexToColLetter(j)}${i+1}`)
+        RANGE.setDataValidation(VALIDATION)
+        if (ROW[j] === "") { ROW[j] = "N/A"}
+      }
+
+      BUDGET_PLANNER_TAB.WriteRow(i, ROW)
+    }
+  }
+
+  const __InsertRow = function () {
+    let start_row = BUDGET_PLANNER_TAB.FindRow(row => row[0] === INCOME_YEAR)
+    let start_row_index = BUDGET_PLANNER_TAB.IndexOfRow(start_row)
+
+
+    if (start_row_index === -1) {
+      BUDGET_PLANNER_TAB.AppendRow([INCOME_YEAR], true)
+      BUDGET_PLANNER_TAB.AppendRow([INCOME_LABEL], true)
+      start_row_index = BUDGET_PLANNER_TAB.NumberOfRows() - 1
+    }
+    else {
+      let insert_row = start_row_index
+      let row = BUDGET_PLANNER_TAB.GetRow(insert_row)
+
+      do {
+        insert_row++
+        row = BUDGET_PLANNER_TAB.GetRow(insert_row)
+      } while(row && row[0] !== "" && isNaN(Number(row[0])))
+
+      BUDGET_PLANNER_TAB.InsertRow(insert_row, [INCOME_LABEL], {should_fill: true})
+      start_row_index = insert_row
+    }
+
+    __AddValidationTo()
+  }
+
+  __InsertRow()
+
+  BUDGET_PLANNER_TAB.SaveToTab()
 }
 
-function onOpen(_: unknown) {
-  AddMultiWeekLoanToRepayment()
-  ComputeMonthlyIncome();
-  GroupByDate("Due Date", "One Week Loans");
-  GroupByDate("Purchase Date", "Multi Week Loans", false);
-  ComputeTotal();
+function onEdit(e: unknown) {
+  if (!__EventObjectIsEditEventObject(e)) { return }
+  const TAB_NAME = e.range.getSheet().getName();
 
+  switch(TAB_NAME) {
+    case MULTI_WEEK_LOANS_TAB_NAME: {
+      const GENERATED = GenerateRepaymentSchedule()
+      if (GENERATED) {
+        GroupByDate("Purchase Date", MULTI_WEEK_LOANS_TAB_NAME, false);
+        GroupByDate("Due Date", ONE_WEEK_LOANS_TAB_NAME);
+        ComputeTotal();
+      }
+      break
+    }
+    case ONE_WEEK_LOANS_TAB_NAME: {
+      ComputeTotal()
+      break
+    }
+  }
+}
+
+function onOpen(_: SpreadSheetOpenEventObject) {
+  ComputeMonthlyIncome();
+  GroupByDate("Due Date", ONE_WEEK_LOANS_TAB_NAME);
 
   const UI = SpreadsheetApp.getUi();
   UI.createMenu("Budgeting")
     .addItem("Create New Household Budget Tab", "__CreateNewHouseholdBudgetTab")
     .addItem("Compute One Week Loans", "ComputeTotal")
+    .addItem("Add Income to Planner", "AddIncomeRow")
     .addToUi();
 }

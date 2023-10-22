@@ -83,13 +83,22 @@ class GoogleSheetTabs {
         return COL
     }
 
+    public GetColByIndex(col_index: number) {
+      if (col_index < 0 || col_index >= this.data[0].length) { return undefined }
+      const COL: DataArrayEntry = []
+      for (let i = 0; i < this.data[col_index].length; i++) {
+        COL.push(this.data[col_index][i])
+      }
+      return COL
+    }
+
     public WriteCol(header_name: string, col: DataArrayEntry) {
         const COL_INDEX = this.headers.get(header_name)
         if (COL_INDEX === undefined) { return }
         const LONGEST_ROW = this.FindLongestRowLength()
 
         for (let i = col.length-1; i >= 0; i--) {
-            if (i >= this.data.length) { this.data.push(new Array(LONGEST_ROW).fill("")) }
+            if (this.data[i] === undefined) { this.data[i] = new Array(LONGEST_ROW).fill("") }
             this.data[i][COL_INDEX] = col[i]
         }
     }
@@ -104,24 +113,71 @@ class GoogleSheetTabs {
         this.data[row_index] = this.CreateRowCopy(row)
     }
 
-    public AppendRow(row: DataArrayEntry) {
-        this.data.push(this.CreateRowCopy(row))
+    public AppendRow(row: DataArrayEntry, should_fill: boolean = false) {
+        row = this.CreateRowCopy(row)
+        this.data.push(row)
+        if (should_fill) {
+          const LONGEST_ROW = this.FindLongestRowLength()
+          while (row.length < LONGEST_ROW) {
+            row.push("")
+          }
+        }
+        return row
     }
 
-    public InsertRow(row_index: number, row: DataArrayEntry, AlterRow?: (row: DataArrayEntry) => DataArrayEntry) {
-        if (row_index < 0 || row_index >= this.data.length) { return }
+    public InsertRow(row_index: number, row: DataArrayEntry, { AlterRow, should_fill }: { 
+      AlterRow?: (row: DataArrayEntry) => DataArrayEntry, 
+      should_fill?: boolean 
+    } = {}) {
+        if (row_index < 0) { row_index = 0 }
         row = this.CreateRowCopy(row)
         if (AlterRow) { row = AlterRow(row) }
+
+        const LONGEST_ROW = this.FindLongestRowLength()
+        while (row.length < LONGEST_ROW && should_fill) {
+          row.push("")
+        }
+
+        if (row_index >= this.data.length) { return this.AppendRow(row) }
         this.data.splice(row_index, 0, row)
+
+        return row
     }
 
     public FindRow(func: (row: DataArrayEntry) => boolean) {
         return this.data.find(func)
     }
 
+    public IndexOfRow(row?: DataArrayEntry) {
+      if (row === undefined) { return -1 }
+      return this.data.indexOf(row)
+    }
+
     public GetRowRange(row_index: number) {
         if (row_index < 0 || row_index >= this.data.length) { return undefined }
         const RANGE_NOTATION = `A${row_index + 1}:${__IndexToColLetter(this.data[row_index].length)}${row_index + 1}`
+        return this.tab.getRange(RANGE_NOTATION)
+    }
+
+    public GetRowSubRange(row_index: number, start: number, end: number) {
+        if (row_index < 0 || row_index >= this.data.length) { return undefined }
+
+        if (start > end || end < start) { start = end }
+        if (start < 0) { start = 0 }
+        if (end < 0) { end = 0 }
+
+        const RANGE_NOTATION = `${__IndexToColLetter(start)}${row_index + 1}:${__IndexToColLetter(end)}${row_index + 1}`
+        return this.tab.getRange(RANGE_NOTATION)
+    }
+
+    public GetRange(start_row: number, end_row: number, start_col: number, end_col: number) {
+        const RANGE_1 = this.GetRowSubRange(start_row, start_col, end_col)
+        const RANGE_2 = this.GetRowSubRange(end_row, start_col, end_col)
+
+        if (RANGE_1 === undefined || RANGE_2 === undefined) { return undefined }
+        const FIRST_NOTATION_PART = RANGE_1.getA1Notation().split(":")[0]
+        const SECOND_NOTATION_PART = RANGE_2.getA1Notation().split(":")[1]
+        const RANGE_NOTATION = `${FIRST_NOTATION_PART}:${SECOND_NOTATION_PART}`
         return this.tab.getRange(RANGE_NOTATION)
     }
 
@@ -252,7 +308,8 @@ function __AddToFixed(num: number, add_val: number, Round?: (x: number) => numbe
 }
 
 function __SetDateToNextWeds(date: Date) {
-  while (date.getUTCDay() !== 3) {
+  const WEDSDAY_INDEX = 3
+  while (date.getUTCDay() !== WEDSDAY_INDEX) {
     date.setUTCDate(date.getUTCDate() + 1);
   }
   return date;
@@ -349,6 +406,18 @@ function __CreateNewHouseholdBudgetTab() {
   ComputeMonthlyIncome()
 }
 
+function __EventObjectIsEditEventObject(e: any): e is {
+  authMode: GoogleAppsScript.Script.AuthMode, 
+  range: GoogleAppsScript.Spreadsheet.Range,
+  source: Spreadsheet,
+  user: GoogleAppsScript.Base.User,
+  oldValue?: string,
+  triggerUid?: string,
+  value?: string,
+} {
+  return e.authMode !== undefined && e.range !== undefined && e.source !== undefined && e.user !== undefined
+}
+
 /**
  * @returns {boolean} checks if date1 is greater than date2
  */
@@ -356,4 +425,36 @@ function __CompareDates(date1: Date | string, date2: Date | string) {
   date1 = new Date(__CreateDateString(date1));
   date2 = new Date(__CreateDateString(date2));
   return date1.getTime() > date2.getTime();
+}
+
+function __Test() {
+  let start_date = new Date("12/28/2023")
+  let cur_year = start_date.getUTCFullYear()
+  const __RosPayDay = function (_: Date, __: number, ___: number) {
+    return true
+  }
+
+  const __DansPayDay = function (_: Date, total_days: number, inc: number) {
+    const SHOULD_PAY =  total_days % (inc * 2) === 0;
+    return SHOULD_PAY;
+  }
+
+  const ROS_PAY_DAY = new PayDay(350.95, start_date, __RosPayDay);
+  ROS_PAY_DAY.SetPayoutDate(__SetDateToNextWeds);
+
+  const MY_PAY_DAY = new PayDay(880.78, start_date, __DansPayDay);
+  MY_PAY_DAY.SetPayoutDate(__SetDateToNextFri(cur_year - 1));
+  let total = 0
+  let total2 = 0
+
+  while (MY_PAY_DAY.PayMonth() === "January" || ROS_PAY_DAY.PayMonth() === "January") {
+    if (MY_PAY_DAY.PayMonth() === "January") {
+      total2 = __AddToFixed(total2, MY_PAY_DAY.PayOut());
+    }
+    if (ROS_PAY_DAY.PayMonth() === "January") {
+      total = __AddToFixed(total, ROS_PAY_DAY.PayOut())
+    }
+  }
+
+  console.log(total, total2, total + total2)
 }
