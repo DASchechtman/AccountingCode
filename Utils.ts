@@ -50,6 +50,7 @@ class GoogleSheetTabs {
         }
 
         this.tab = tab
+        this.data = []
         this.InitSheetData()
 
         const HEADERS = this.data[0]
@@ -255,6 +256,12 @@ class GoogleSheetTabs {
     }
 }
 
+class Console {
+  public static Log(...val: any[]) {
+    console.log(val.join(" "))
+  }
+}
+
 function __ConvertToStrOrNum(val: unknown) {
     let ret: number | string = ""
 
@@ -364,6 +371,14 @@ function __CreateBudgetTab() {
 
   budget_tab.GetTab().setFrozenRows(3);
   budget_tab.GetTab().setFrozenColumns(1);
+  
+  const MISC_HOUSEHOLD_PURCHASES_INDEX = budget_tab.IndexOfRow(budget_tab.FindRow(row => row[0] === "Misc Household Purchases"))
+
+  if (MISC_HOUSEHOLD_PURCHASES_INDEX !== -1) {
+    budget_tab.GetTab().getRange(`B${MISC_HOUSEHOLD_PURCHASES_INDEX+1}:B`).setNumberFormat("mm/dd/yyyy")
+    budget_tab.GetTab().getRange(`C${MISC_HOUSEHOLD_PURCHASES_INDEX+1}:C`).setNumberFormat("$#,##0.00")
+  }
+
   return budget_tab
 }
 
@@ -455,6 +470,4 @@ function __Test() {
       total = __AddToFixed(total, ROS_PAY_DAY.PayOut())
     }
   }
-
-  console.log(total, total2, total + total2)
 }

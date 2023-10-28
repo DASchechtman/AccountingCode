@@ -75,7 +75,7 @@ function GroupByDate(
   const GroupRowsInSheet = function () {
     const LIGHT_RED_SHADES = ["#FF7F7F", "#FF9F9F"]
     let i = 0
-    console.log(BOUNDRIES.size)
+   
     BOUNDRIES.forEach((val, key) => {
       const DUE_DATE = new Date(val[2])
       const CUR_DATE = new Date()
@@ -476,7 +476,7 @@ function AddIncomeRow() {
 
   const __AddValidationTo = function() {
     const VALIDATION = SpreadsheetApp.newDataValidation().requireValueInList(PAYMENT_SCHEDULE).build()
-    
+
     for (let i = 0; i < BUDGET_PLANNER_TAB.NumberOfRows(); i++) {
       const ROW = BUDGET_PLANNER_TAB.GetRow(i)!
       if (!isNaN(Number(ROW[0]))) {
@@ -488,7 +488,7 @@ function AddIncomeRow() {
         if (j % 2 === 0) { continue }
         const RANGE = BUDGET_PLANNER_TAB.GetTab().getRange(`${__IndexToColLetter(j)}${i+1}`)
         RANGE.setDataValidation(VALIDATION)
-        if (ROW[j] === "") { ROW[j] = "N/A"}
+        if (ROW[j] === "") { ROW[j] = "N/A" }
       }
 
       BUDGET_PLANNER_TAB.WriteRow(i, ROW)
@@ -544,12 +544,17 @@ function onEdit(e: unknown) {
       ComputeTotal()
       break
     }
+    case BUDGET_PLANNER_TAB_NAME: {
+      break
+    }
   }
 }
 
 function onOpen(_: SpreadSheetOpenEventObject) {
   ComputeMonthlyIncome();
   GroupByDate("Due Date", ONE_WEEK_LOANS_TAB_NAME);
+  const x = new Map()
+  Console.Log(x.size, 1, 2, 3)
 
   const UI = SpreadsheetApp.getUi();
   UI.createMenu("Budgeting")
