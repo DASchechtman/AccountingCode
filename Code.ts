@@ -474,56 +474,71 @@ function AddIncomeRow() {
     return
   }
 
-  const __AddValidationTo = function() {
-    const VALIDATION = SpreadsheetApp.newDataValidation().requireValueInList(PAYMENT_SCHEDULE).build()
+  const INCOME_YEAR_COL = BUDGET_PLANNER_TAB.GetHeaderIndex("Income Year")
+  const INCOME_LABEL_COL = BUDGET_PLANNER_TAB.GetHeaderIndex("Income Label")
+  const JAN_LABEL_COL = BUDGET_PLANNER_TAB.GetHeaderIndex("January")
 
-    for (let i = 0; i < BUDGET_PLANNER_TAB.NumberOfRows(); i++) {
-      const ROW = BUDGET_PLANNER_TAB.GetRow(i)!
-      if (!isNaN(Number(ROW[0]))) {
-        BUDGET_PLANNER_TAB.GetRowRange(i)?.setDataValidation(null)
-        continue 
-      }
+  if (INCOME_YEAR_COL === -1 || INCOME_LABEL_COL === -1) { return }
 
-      for (let j = 0; j < ROW.length; j++) {
-        if (j % 2 === 0) { continue }
-        const RANGE = BUDGET_PLANNER_TAB.GetTab().getRange(`${__IndexToColLetter(j)}${i+1}`)
-        RANGE.setDataValidation(VALIDATION)
-        if (ROW[j] === "") { ROW[j] = "N/A" }
-      }
+  let inserted_col = false
+  let row_index = 0
+  for(let i = 1; i < BUDGET_PLANNER_TAB.NumberOfRows(); i++) {
+    const ROW = BUDGET_PLANNER_TAB.GetRow(i)
+    if (!ROW) { continue }
 
-      BUDGET_PLANNER_TAB.WriteRow(i, ROW)
+    if (ROW[INCOME_YEAR_COL] === INCOME_YEAR && ROW[INCOME_LABEL_COL] === INCOME_LABEL) {
+      UI.alert("This entry already exists in the budget planner")
+      return
     }
+
+    if (INCOME_YEAR >= Number(ROW[INCOME_YEAR_COL])) { continue }
+    inserted_col = true
+    row_index = i
+    BUDGET_PLANNER_TAB.InsertRow(i, [INCOME_YEAR, INCOME_LABEL], { should_fill: true})
+    break
   }
 
-  const __InsertRow = function () {
-    let start_row = BUDGET_PLANNER_TAB.FindRow(row => row[0] === INCOME_YEAR)
-    let start_row_index = BUDGET_PLANNER_TAB.IndexOfRow(start_row)
-
-
-    if (start_row_index === -1) {
-      BUDGET_PLANNER_TAB.AppendRow([INCOME_YEAR], true)
-      BUDGET_PLANNER_TAB.AppendRow([INCOME_LABEL], true)
-      start_row_index = BUDGET_PLANNER_TAB.NumberOfRows() - 1
-    }
-    else {
-      let insert_row = start_row_index
-      let row = BUDGET_PLANNER_TAB.GetRow(insert_row)
-
-      do {
-        insert_row++
-        row = BUDGET_PLANNER_TAB.GetRow(insert_row)
-      } while(row && row[0] !== "" && isNaN(Number(row[0])))
-
-      BUDGET_PLANNER_TAB.InsertRow(insert_row, [INCOME_LABEL], {should_fill: true})
-      start_row_index = insert_row
-    }
-
-    __AddValidationTo()
+  if (!inserted_col) { 
+    BUDGET_PLANNER_TAB.AppendRow([INCOME_YEAR, INCOME_LABEL], true)
+    row_index = BUDGET_PLANNER_TAB.NumberOfRows() - 1
   }
 
-  __InsertRow()
+  const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+  const VALIDATION_OPTIONS = [...WEEKDAYS.map(day => PAYMENT_SCHEDULE.map(pay => `${day} : ${pay}`)).flat(), "N/A"]
+  const VALIDATION = SpreadsheetApp.newDataValidation().requireValueInList(VALIDATION_OPTIONS).build()
+  const ROW = BUDGET_PLANNER_TAB.GetRow(row_index)!
 
+  for (let i = JAN_LABEL_COL-1; i < ROW.length; i += 2) {
+    BUDGET_PLANNER_TAB.GetTab().getRange(row_index+1, i+1).setDataValidation(VALIDATION)
+    if (ROW[i] !== "") { continue }
+    ROW[i] = VALIDATION_OPTIONS[VALIDATION_OPTIONS.length-1]
+  }
+
+  BUDGET_PLANNER_TAB.WriteRow(row_index, ROW)
   BUDGET_PLANNER_TAB.SaveToTab()
+}
+
+function ComputeIncomeForEachMonth() {
+  const ALL_YEARS = 'ALL-YEARS'
+  const BUDGET_TAB = new GoogleSheetTabs(BUDGET_PLANNER_TAB_NAME)
+
+  const __CalcIncomeForEachPersonInYear = function(year: number) {
+
+  }
+
+  let income_year: number | typeof ALL_YEARS = SpreadsheetApp.getUi().prompt(
+    "What year do you want to compute the income for?",
+    SpreadsheetApp.getUi().ButtonSet.OK_CANCEL
+  ).getResponseText().toNumber()
+
+  if (isNaN(income_year)) { income_year = ALL_YEARS }
+
+  if (income_year === ALL_YEARS) {
+    
+  }
+  else {
+    
+  }
 }
 
 function onEdit(e: unknown) {
@@ -561,5 +576,6 @@ function onOpen(_: SpreadSheetOpenEventObject) {
     .addItem("Create New Household Budget Tab", "__CreateNewHouseholdBudgetTab")
     .addItem("Compute One Week Loans", "ComputeTotal")
     .addItem("Add Income to Planner", "AddIncomeRow")
+    .addItem("Generate Income Schedule", "ComputeIncomeForEachMonth")
     .addToUi();
 }

@@ -24,7 +24,7 @@ type SpreadSheetOpenEventObject = {
 
 const PURCHASE_HEADER = "Purchases for"
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-const PAYMENT_SCHEDULE = ["Weekly", "Bi-Weekly", "Semi-Monthly", "Monthly", "Custom", "One-Time", "N/A"]
+const PAYMENT_SCHEDULE = ["Weekly", "Bi-Weekly", "Semi-Monthly", "Monthly", "Custom"]
 
 const ONE_WEEK_LOANS_TAB_NAME = "One Week Loans"
 const HOUSE_BUDGET_DASHBOARD_TAB_NAME = "Household Budget Dashboard"

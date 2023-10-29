@@ -149,9 +149,11 @@ class GoogleSheetTabs {
         return this.data.find(func)
     }
 
-    public IndexOfRow(row?: DataArrayEntry) {
-      if (row === undefined) { return -1 }
-      return this.data.indexOf(row)
+    public IndexOfRow(row?: DataArrayEntry | ((row: DataArrayEntry) => boolean)) {
+      let search_row = row
+      if (typeof search_row === "function") { search_row = this.FindRow(search_row) }
+      if (search_row === undefined) { return -1 }
+      return this.data.indexOf(search_row)
     }
 
     public GetRowRange(row_index: number) {
