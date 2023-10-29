@@ -1,4 +1,6 @@
-type CheckPayOut = (date: Date, dir: number, inc: number) => boolean;
+
+type PayOutParams = {date: Date, total_days: number, inc: number, pay_month: string};
+type CheckPayOut = ({date, total_days, inc, pay_month}: PayOutParams) => boolean;
 type Spreadsheet = GoogleAppsScript.Spreadsheet.Spreadsheet;
 type Tab = GoogleAppsScript.Spreadsheet.Sheet;
 type DataArray = Array<DataArrayEntry>;
@@ -24,7 +26,7 @@ type SpreadSheetOpenEventObject = {
 
 const PURCHASE_HEADER = "Purchases for"
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-const PAYMENT_SCHEDULE = ["Weekly", "Bi-Weekly", "Semi-Monthly", "Monthly", "Custom"]
+const PAYMENT_SCHEDULE = ["Weekly", "Bi-Weekly", "Semi-Monthly", "Monthly"]
 
 const ONE_WEEK_LOANS_TAB_NAME = "One Week Loans"
 const HOUSE_BUDGET_DASHBOARD_TAB_NAME = "Household Budget Dashboard"

@@ -19,21 +19,33 @@ class PayDay {
 
   public PayOut() {
     let pay_amt = this.pay_out_amt;
-    if (!this.ShouldPayOut(this.pay_date, this.total_days, this.day_inc)) {
+    const SHOULD_PAY = this.ShouldPayOut({
+      date: this.pay_date, 
+      total_days: this.total_days, 
+      inc: this.day_inc, 
+      pay_month: this.PayMonth()
+    })
+
+    if (!SHOULD_PAY) {
       pay_amt = 0;
     }
+
     this.pay_date.setUTCDate(this.pay_date.getUTCDate() + this.day_inc);
     this.total_days += this.day_inc;
     return pay_amt;
   }
 
   public PayMonth() {
+    return this.months[this.GetMonthIndex()];
+  }
+
+  private GetMonthIndex() {
+    let month = this.pay_date.getUTCMonth();
     const MONTH_DAY = this.pay_date.getUTCDate();
-    const MONTH = this.pay_date.getUTCMonth();
     if (MONTH_DAY >= 28) {
-      return this.months[(MONTH + 1) % this.months.length];
+      month = (month + 1) % this.months.length;
     }
-    return this.months[MONTH];
+    return month
   }
 }
 
@@ -447,11 +459,11 @@ function __CompareDates(date1: Date | string, date2: Date | string) {
 function __Test() {
   let start_date = new Date("12/28/2023")
   let cur_year = start_date.getUTCFullYear()
-  const __RosPayDay = function (_: Date, __: number, ___: number) {
+  const __RosPayDay = function () {
     return true
   }
 
-  const __DansPayDay = function (_: Date, total_days: number, inc: number) {
+  const __DansPayDay = function ({total_days, inc}: PayOutParams) {
     const SHOULD_PAY =  total_days % (inc * 2) === 0;
     return SHOULD_PAY;
   }

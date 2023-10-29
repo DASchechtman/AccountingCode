@@ -377,11 +377,11 @@ function ComputeMonthlyIncome() {
   const LAST_YEAR = cur_year - 1
   let start_date = new Date(`12/28/${LAST_YEAR}`);
 
-  const __RosPayDay = function (_: Date, __: number, ___: number) {
+  const __RosPayDay = function () {
     return true
   }
 
-  const __DansPayDay = function (_: Date, total_days: number, inc: number) {
+  const __DansPayDay = function ({total_days, inc}: PayOutParams) {
     const SHOULD_PAY =  total_days % (inc * 2) === 0;
     return SHOULD_PAY;
   }
@@ -462,6 +462,24 @@ function AddIncomeRow() {
   const INCOME_LABEL = UI.prompt("What is the income label?", UI.ButtonSet.OK_CANCEL).getResponseText()
   const INCOME_YEAR = Number(YEAR_INPUT)
 
+  const __AddValidationToRow = function(row_index: number) {
+    const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+    const VALIDATION_OPTIONS = [...WEEKDAYS.map(day => PAYMENT_SCHEDULE.map(pay => `${day} : ${pay}`)).flat(), "Custom", "N/A"]
+    const VALIDATION = SpreadsheetApp
+        .newDataValidation()
+        .requireValueInList(VALIDATION_OPTIONS)
+        .build()
+    const ROW = BUDGET_PLANNER_TAB.GetRow(row_index)!
+
+    for (let i = JAN_LABEL_COL-1; i < ROW.length; i += 2) {
+      BUDGET_PLANNER_TAB.GetTab().getRange(row_index+1, i+1).setDataValidation(VALIDATION)
+      if (ROW[i] !== "") { continue }
+      ROW[i] = VALIDATION_OPTIONS[VALIDATION_OPTIONS.length-1]
+    }
+
+    BUDGET_PLANNER_TAB.WriteRow(row_index, ROW)
+  }
+
   if (isNaN(INCOME_YEAR) || INCOME_LABEL === "") { 
     let alert = ""
     if (isNaN(INCOME_YEAR)) { 
@@ -503,27 +521,115 @@ function AddIncomeRow() {
     row_index = BUDGET_PLANNER_TAB.NumberOfRows() - 1
   }
 
-  const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-  const VALIDATION_OPTIONS = [...WEEKDAYS.map(day => PAYMENT_SCHEDULE.map(pay => `${day} : ${pay}`)).flat(), "N/A"]
-  const VALIDATION = SpreadsheetApp.newDataValidation().requireValueInList(VALIDATION_OPTIONS).build()
-  const ROW = BUDGET_PLANNER_TAB.GetRow(row_index)!
+  __AddValidationToRow(row_index)
 
-  for (let i = JAN_LABEL_COL-1; i < ROW.length; i += 2) {
-    BUDGET_PLANNER_TAB.GetTab().getRange(row_index+1, i+1).setDataValidation(VALIDATION)
-    if (ROW[i] !== "") { continue }
-    ROW[i] = VALIDATION_OPTIONS[VALIDATION_OPTIONS.length-1]
+  for (let i = row_index+1; i < BUDGET_PLANNER_TAB.NumberOfRows() && inserted_col; i++) {
+    __AddValidationToRow(i)
   }
 
-  BUDGET_PLANNER_TAB.WriteRow(row_index, ROW)
+  
   BUDGET_PLANNER_TAB.SaveToTab()
 }
 
 function ComputeIncomeForEachMonth() {
   const ALL_YEARS = 'ALL-YEARS'
   const BUDGET_TAB = new GoogleSheetTabs(BUDGET_PLANNER_TAB_NAME)
+  const HEADERS = BUDGET_TAB.GetRow(0)!
 
-  const __CalcIncomeForEachPersonInYear = function(year: number) {
+  const MON = "Monday"
+  const TUE = "Tuesday"
+  const WED = "Wednesday"
+  const THU = "Thursday"
+  const FRI = "Friday"
 
+  const WEEKLY = "Weekly"
+  const BI_WEEKLY = "Bi-Weekly"
+  const SEMI_MONTHLY = "Semi-Monthly"
+  const MONTHLY = "Monthly"
+
+  let pay_schedule = ""
+  let pay_day = ""
+
+  const AMT_PER_PAY_COL = BUDGET_TAB.GetHeaderIndex("Amount Each Paycheck")
+  const JAN_LABEL_COL = BUDGET_TAB.GetHeaderIndex("January")
+
+  const __WeeklyPayDay = function () {
+    return true
+  }
+
+  const __BiWeeklyPayDay = function({total_days, inc}: PayOutParams) {
+      const SHOULD_PAY =  total_days % (inc * 2) === 0;
+      return SHOULD_PAY;
+  }
+
+  const __SemiMonthlyPayDay = function () {
+    let month = ""
+    let num_of_payments = 0
+    return function({pay_month}: PayOutParams) {
+      if (month !== pay_month) {
+        month = pay_month
+        num_of_payments = 0
+      }
+
+      return num_of_payments++ < 2
+    }
+  }
+
+  const __MonthlyPayDay = function () {
+    let paid_out = false
+    let month = ""
+    return function({pay_month}: PayOutParams) {
+      if (month !== pay_month) {
+        month = pay_month
+        paid_out = true
+      }
+
+      const SHOULD_PAY = paid_out
+      paid_out = false
+      return SHOULD_PAY
+    }
+  }
+
+  const __SetDateTo = function(day: string) {
+    let day_code = -1
+    if (day === MON) { day_code = 1 }
+    else if (day === TUE) { day_code = 2 }
+    else if (day === WED) { day_code = 3 }
+    else if (day === THU) { day_code = 4 }
+    else if (day === FRI) { day_code = 5 }
+    return day_code
+  }
+
+  const __GetSetDateMethod = function(pay_schedule: string) {
+    let set_date_method: CheckPayOut = __WeeklyPayDay
+    if (pay_schedule === WEEKLY) { set_date_method = __WeeklyPayDay }
+    else if (pay_schedule === BI_WEEKLY) { set_date_method = __BiWeeklyPayDay }
+    else if (pay_schedule === SEMI_MONTHLY) { set_date_method = __SemiMonthlyPayDay() }
+    else if (pay_schedule === MONTHLY) { set_date_method = __MonthlyPayDay() }
+    return set_date_method
+  }
+
+
+  const __CalcIncomeForEachPersonInYear = function() {
+    for(let i = 1; i < BUDGET_TAB.NumberOfRows(); i++) {
+      const ROW = BUDGET_TAB.GetRow(i)!
+
+      if (income_year !== ALL_YEARS && ROW[i] !== income_year) { continue }
+      const INCOME = Number(ROW[AMT_PER_PAY_COL])
+      for (let j = JAN_LABEL_COL; j < ROW.length; j += 2) {
+        if (ROW[j-1] === "N/A") { continue }
+        [pay_day, pay_schedule] = ROW[j-1].toString().split(":").map(x => x.trim())
+
+        const PAY_DAY = new PayDay(INCOME, new Date(`${ROW[0]}/01/${income_year}`), __GetSetDateMethod(pay_schedule))
+        PAY_DAY.SetPayoutDate(date => {
+          const DAY_CODE = __SetDateTo(pay_day)
+          while (date.getUTCDay() !== DAY_CODE) {
+            date.setDate(date.getDate() + 1)
+          }
+          return date
+        })
+      }
+    }
   }
 
   let income_year: number | typeof ALL_YEARS = SpreadsheetApp.getUi().prompt(
@@ -533,12 +639,7 @@ function ComputeIncomeForEachMonth() {
 
   if (isNaN(income_year)) { income_year = ALL_YEARS }
 
-  if (income_year === ALL_YEARS) {
-    
-  }
-  else {
-    
-  }
+  
 }
 
 function onEdit(e: unknown) {
