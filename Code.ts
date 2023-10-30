@@ -549,6 +549,10 @@ function ComputeIncomeForEachMonth() {
 
   let pay_schedule = ""
   let pay_day = ""
+  let income_year: number | typeof ALL_YEARS = SpreadsheetApp.getUi().prompt(
+    "What year do you want to compute the income for?",
+    SpreadsheetApp.getUi().ButtonSet.OK_CANCEL
+  ).getResponseText().toNumber()
 
   const AMT_PER_PAY_COL = BUDGET_TAB.GetHeaderIndex("Amount Each Paycheck")
   const JAN_LABEL_COL = BUDGET_TAB.GetHeaderIndex("January")
@@ -631,11 +635,6 @@ function ComputeIncomeForEachMonth() {
       }
     }
   }
-
-  let income_year: number | typeof ALL_YEARS = SpreadsheetApp.getUi().prompt(
-    "What year do you want to compute the income for?",
-    SpreadsheetApp.getUi().ButtonSet.OK_CANCEL
-  ).getResponseText().toNumber()
 
   if (isNaN(income_year)) { income_year = ALL_YEARS }
 
