@@ -461,6 +461,12 @@ function AddIncomeRow() {
   const YEAR_INPUT = UI.prompt("What year is this income for?", UI.ButtonSet.OK_CANCEL).getResponseText()
   const INCOME_LABEL = UI.prompt("What is the income label?", UI.ButtonSet.OK_CANCEL).getResponseText()
   const INCOME_YEAR = Number(YEAR_INPUT)
+  const INCOME_PER_MONTH_COL = 1
+  const INCOME_STREAM_COL = 1
+  const INCOME_YEAR_COL = 0
+  const IncomePerMonthRow = () => BUDGET_PLANNER_TAB.IndexOfRow(row => row[INCOME_PER_MONTH_COL] === "Income Per Month")
+  const IncomeStreamRow = () => BUDGET_PLANNER_TAB.IndexOfRow(row => row[INCOME_STREAM_COL] === "Income Stream")
+  const JAN_LABEL_COL = BUDGET_PLANNER_TAB.GetHeaderIndex("January")
 
   const __AddValidationToRow = function(row_index: number) {
     const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
@@ -469,15 +475,20 @@ function AddIncomeRow() {
         .newDataValidation()
         .requireValueInList(VALIDATION_OPTIONS)
         .build()
-    const ROW = BUDGET_PLANNER_TAB.GetRow(row_index)!
-
-    for (let i = JAN_LABEL_COL-1; i < ROW.length; i += 2) {
-      BUDGET_PLANNER_TAB.GetTab().getRange(row_index+1, i+1).setDataValidation(VALIDATION)
-      if (ROW[i] !== "") { continue }
-      ROW[i] = VALIDATION_OPTIONS[VALIDATION_OPTIONS.length-1]
+    for (let i = IncomePerMonthRow(); i <= IncomeStreamRow(); i++) {
+      BUDGET_PLANNER_TAB.GetRowRange(i)?.setDataValidation(null)
     }
 
-    BUDGET_PLANNER_TAB.WriteRow(row_index, ROW)
+    for (let j = IncomeStreamRow()+1; j < BUDGET_PLANNER_TAB.NumberOfRows(); j++) {
+      const ROW = BUDGET_PLANNER_TAB.GetRow(j)!
+      for (let i = JAN_LABEL_COL-1; i < ROW.length; i += 2) {
+        BUDGET_PLANNER_TAB.GetTab().getRange(j+1, i+1).setDataValidation(VALIDATION)
+        if (ROW[i] !== "") { continue }
+        ROW[i] = VALIDATION_OPTIONS[VALIDATION_OPTIONS.length-1]
+        ROW[i+1] = "-"
+      }
+      BUDGET_PLANNER_TAB.WriteRow(j, ROW)
+    }
   }
 
   if (isNaN(INCOME_YEAR) || INCOME_LABEL === "") { 
@@ -492,40 +503,50 @@ function AddIncomeRow() {
     return
   }
 
-  const INCOME_YEAR_COL = BUDGET_PLANNER_TAB.GetHeaderIndex("Income Year")
-  const INCOME_LABEL_COL = BUDGET_PLANNER_TAB.GetHeaderIndex("Income Label")
-  const JAN_LABEL_COL = BUDGET_PLANNER_TAB.GetHeaderIndex("January")
+  
 
-  if (INCOME_YEAR_COL === -1 || INCOME_LABEL_COL === -1) { return }
+  if (IncomePerMonthRow() === -1 || IncomeStreamRow() === -1) { return }
 
   let inserted_col = false
   let row_index = 0
-  for(let i = 1; i < BUDGET_PLANNER_TAB.NumberOfRows(); i++) {
-    const ROW = BUDGET_PLANNER_TAB.GetRow(i)
-    if (!ROW) { continue }
 
-    if (ROW[INCOME_YEAR_COL] === INCOME_YEAR && ROW[INCOME_LABEL_COL] === INCOME_LABEL) {
-      UI.alert("This entry already exists in the budget planner")
-      return
+  const STOP = IncomeStreamRow()
+  for(let i = IncomePerMonthRow()+1; i < STOP; i++) {
+    const ROW = BUDGET_PLANNER_TAB.GetRow(i)!
+    if (ROW[INCOME_PER_MONTH_COL] === "") {
+      BUDGET_PLANNER_TAB.InsertRow(i, [INCOME_YEAR, INCOME_LABEL], { should_fill: true })
+      break
     }
-
-    if (INCOME_YEAR >= Number(ROW[INCOME_YEAR_COL])) { continue }
-    inserted_col = true
-    row_index = i
-    BUDGET_PLANNER_TAB.InsertRow(i, [INCOME_YEAR, INCOME_LABEL], { should_fill: true})
+    if (Number(ROW[INCOME_YEAR_COL]) <= INCOME_YEAR) { continue }
+    BUDGET_PLANNER_TAB.InsertRow(i, [INCOME_YEAR, INCOME_LABEL], { should_fill: true })
     break
   }
 
-  if (!inserted_col) { 
+  const ShouldLoop = (i: number) => i < BUDGET_PLANNER_TAB.NumberOfRows()
+  const START = IncomeStreamRow()+1
+  let inserted = false
+  for (let i = START; ShouldLoop(i); i++) {
+    const ROW = BUDGET_PLANNER_TAB.GetRow(i)!
+    if (ROW[INCOME_STREAM_COL] === "") {
+      BUDGET_PLANNER_TAB.InsertRow(i, [INCOME_YEAR, INCOME_LABEL], { should_fill: true })
+      row_index = i
+      inserted = true
+      break
+    }
+
+    if (Number(ROW[INCOME_YEAR_COL]) <= INCOME_YEAR) { continue }
+    BUDGET_PLANNER_TAB.InsertRow(i, [INCOME_YEAR, INCOME_LABEL], { should_fill: true })
+    row_index = i
+    inserted = true
+    break
+  }
+
+  if (!ShouldLoop(START) || !inserted) { 
     BUDGET_PLANNER_TAB.AppendRow([INCOME_YEAR, INCOME_LABEL], true)
-    row_index = BUDGET_PLANNER_TAB.NumberOfRows() - 1
+    row_index = START
   }
 
   __AddValidationToRow(row_index)
-
-  for (let i = row_index+1; i < BUDGET_PLANNER_TAB.NumberOfRows() && inserted_col; i++) {
-    __AddValidationToRow(i)
-  }
 
   
   BUDGET_PLANNER_TAB.SaveToTab()
@@ -627,8 +648,8 @@ function ComputeIncomeForEachMonth() {
         const PAY_DAY = new PayDay(INCOME, new Date(`${ROW[0]}/01/${income_year}`), __GetSetDateMethod(pay_schedule))
         PAY_DAY.SetPayoutDate(date => {
           const DAY_CODE = __SetDateTo(pay_day)
-          while (date.getUTCDay() !== DAY_CODE) {
-            date.setDate(date.getDate() + 1)
+          if (date.getUTCDay() !== DAY_CODE) {
+            date.setDate(date.getDate() + (DAY_CODE - date.getUTCDay()))
           }
           return date
         })
