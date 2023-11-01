@@ -468,7 +468,7 @@ function AddIncomeRow() {
   const INCOME_STREAM_COL = 1
   const INCOME_YEAR_COL = 0
 
-  const IncomePerMonthRow = () => BUDGET_PLANNER_TAB.IndexOfRow(row => row[INCOME_PER_MONTH_COL] === "Income Per Month")
+  const IncomePerMonthRow = () => BUDGET_PLANNER_TAB.IndexOfRow(row => row[INCOME_PER_MONTH_COL] === "Income Per Paycheck")
 
   const IncomeStreamRow = () => BUDGET_PLANNER_TAB.IndexOfRow(row => row[INCOME_STREAM_COL] === "Income Stream")
 
@@ -556,98 +556,99 @@ function ComputeIncomeForEachMonth() {
   const SEMI_MONTHLY = "Semi-Monthly"
   const MONTHLY = "Monthly"
 
+  const INCOME_PER_MONTH_ROW = BUDGET_TAB.IndexOfRow(row => row[1] === "Income Per Paycheck")
+  const INCOME_STREAM_ROW = BUDGET_TAB.IndexOfRow(row => row[1] === "Income Stream")
+  const JAN_COL = BUDGET_TAB.GetHeaderIndex("January")
+
+  let day = ""
   let pay_schedule = ""
-  let pay_day = ""
-  let income_year: number | typeof ALL_YEARS = SpreadsheetApp.getUi().prompt(
-    "What year do you want to compute the income for?",
-    SpreadsheetApp.getUi().ButtonSet.OK_CANCEL
-  ).getResponseText().toNumber()
+  let pay = 0
 
-  const AMT_PER_PAY_COL = BUDGET_TAB.GetHeaderIndex("Amount Each Paycheck")
-  const JAN_LABEL_COL = BUDGET_TAB.GetHeaderIndex("January")
-
-  const __WeeklyPayDay = function () {
-    return true
-  }
-
-  const __BiWeeklyPayDay = function({total_days, inc}: PayOutParams) {
-      const SHOULD_PAY =  total_days % (inc * 2) === 0;
-      return SHOULD_PAY;
-  }
-
-  const __SemiMonthlyPayDay = function () {
-    let month = ""
-    let num_of_payments = 0
-    return function({pay_month}: PayOutParams) {
-      if (month !== pay_month) {
-        month = pay_month
-        num_of_payments = 0
-      }
-
-      return num_of_payments++ < 2
-    }
-  }
-
-  const __MonthlyPayDay = function () {
-    let paid_out = false
-    let month = ""
-    return function({pay_month}: PayOutParams) {
-      if (month !== pay_month) {
-        month = pay_month
-        paid_out = true
-      }
-
-      const SHOULD_PAY = paid_out
-      paid_out = false
-      return SHOULD_PAY
-    }
-  }
-
-  const __SetDateTo = function(day: string) {
+  const __SetDate = function(day: string) {
     let day_code = -1
-    if (day === MON) { day_code = 1 }
-    else if (day === TUE) { day_code = 2 }
-    else if (day === WED) { day_code = 3 }
-    else if (day === THU) { day_code = 4 }
-    else if (day === FRI) { day_code = 5 }
-    return day_code
-  }
+    switch(day) {
+      case MON: { day_code = 1; break }
+      case TUE: { day_code = 2; break }
+      case WED: { day_code = 3; break }
+      case THU: { day_code = 4; break }
+      case FRI: { day_code = 5; break }
+    }
 
-  const __GetSetDateMethod = function(pay_schedule: string) {
-    let set_date_method: CheckPayOut = __WeeklyPayDay
-    if (pay_schedule === WEEKLY) { set_date_method = __WeeklyPayDay }
-    else if (pay_schedule === BI_WEEKLY) { set_date_method = __BiWeeklyPayDay }
-    else if (pay_schedule === SEMI_MONTHLY) { set_date_method = __SemiMonthlyPayDay() }
-    else if (pay_schedule === MONTHLY) { set_date_method = __MonthlyPayDay() }
-    return set_date_method
-  }
-
-
-  const __CalcIncomeForEachPersonInYear = function() {
-    for(let i = 1; i < BUDGET_TAB.NumberOfRows(); i++) {
-      const ROW = BUDGET_TAB.GetRow(i)!
-
-      if (income_year !== ALL_YEARS && ROW[i] !== income_year) { continue }
-      const INCOME = Number(ROW[AMT_PER_PAY_COL])
-      for (let j = JAN_LABEL_COL; j < ROW.length; j += 2) {
-        if (ROW[j-1] === "N/A") { continue }
-        [pay_day, pay_schedule] = ROW[j-1].toString().split(":").map(x => x.trim())
-
-        const PAY_DAY = new PayDay(INCOME, new Date(`${ROW[0]}/01/${income_year}`), __GetSetDateMethod(pay_schedule))
-        PAY_DAY.SetPayoutDate(date => {
-          const DAY_CODE = __SetDateTo(pay_day)
-          if (date.getUTCDay() !== DAY_CODE) {
-            date.setDate(date.getDate() + (DAY_CODE - date.getUTCDay()))
-          }
-          return date
-        })
+    return function(date: Date) {
+      while(date.getUTCDay() !== day_code) {
+        date.setDate(date.getDate() + 1)
       }
+      return date
     }
   }
 
-  if (isNaN(income_year)) { income_year = ALL_YEARS }
+  const __SetPayoutCheck = function(schedule: string) {
+    switch(schedule) {
+      case WEEKLY: { return () => true }
+      case BI_WEEKLY: { 
+        return function(params: PayOutParams) {
+          return params.total_days % (params.inc * 2) === 0
+        }
+      }
+      case SEMI_MONTHLY: {
+        let month = ""
+        let count = 0
+        return function(params: PayOutParams) {
+          if (month !== params.pay_month) {
+            month = params.pay_month
+            count = 0
+          }
+          return count++ < 2
+        }
+      }
+      case MONTHLY: { 
+        let month = ""
+        let paid = false
+        return function(params: PayOutParams) {
+          if (month !== params.pay_month) {
+            month = params.pay_month
+            paid = false
+          }
+          const PAID = paid
+          paid = true
+          return !PAID
+        }
+      }
+    }
 
-  
+    return () => true
+  }
+
+  for (let i = INCOME_STREAM_ROW + 1; i < BUDGET_TAB.NumberOfRows(); i++) {
+    const ROW = BUDGET_TAB.GetRow(i)!
+    const PAY_ROW_INDEX = BUDGET_TAB.IndexOfRow(row => row[1] === ROW[1] && row[0] === ROW[0], INCOME_PER_MONTH_ROW)
+    const PAY_ROW = BUDGET_TAB.GetRow(PAY_ROW_INDEX)!
+    const PAY = new PayDay(0, new Date(`1/1/${ROW[0]}`), () => true)
+    for (let j = JAN_COL - 1; j < ROW.length; j += 2) {
+      if (pay === 0 || PAY_ROW[j+1] !== "") { 
+        pay = Number(PAY_ROW[j+1])
+        PAY.SetPayoutAmount(pay)
+      }
+
+      if (ROW[j] === "Custom") {
+        PAY.SetPayoutCheck(__SetPayoutCheck(MONTHLY))
+      }
+      else if (ROW[j] !== "N/A") { 
+        [day, pay_schedule] = String(ROW[j]).split(" : ")
+        PAY.SetPayoutDate(__SetDate(day))
+        PAY.SetPayoutCheck(__SetPayoutCheck(pay_schedule))
+      }
+
+      let total = 0
+      while (PAY.PayMonth() === HEADERS[j+1]) {
+        total = __AddToFixed(total, PAY.PayOut())
+      }
+      ROW[j+1] = total
+    }
+    BUDGET_TAB.WriteRow(i, ROW)
+  }
+
+  BUDGET_TAB.SaveToTab()
 }
 
 function onEdit(e: unknown) {

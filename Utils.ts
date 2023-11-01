@@ -17,6 +17,14 @@ class PayDay {
     this.pay_date = PayOutDate(this.pay_date);
   }
 
+  public SetPayoutAmount(pay_out_amt: number) {
+    this.pay_out_amt = pay_out_amt;
+  }
+
+  public SetPayoutCheck(ShouldPayOut: CheckPayOut) {
+    this.ShouldPayOut = ShouldPayOut;
+  }
+
   public PayOut() {
     let pay_amt = this.pay_out_amt;
     const SHOULD_PAY = this.ShouldPayOut({
@@ -161,11 +169,11 @@ class GoogleSheetTabs {
         return this.data.find(func)
     }
 
-    public IndexOfRow(row?: DataArrayEntry | ((row: DataArrayEntry) => boolean)) {
+    public IndexOfRow(row?: DataArrayEntry | ((row: DataArrayEntry) => boolean), index_from?: number) {
       let search_row = row
       if (typeof search_row === "function") { search_row = this.FindRow(search_row) }
       if (search_row === undefined) { return -1 }
-      return this.data.indexOf(search_row)
+      return this.data.indexOf(search_row, index_from)
     }
 
     public GetRowRange(row_index: number) {
