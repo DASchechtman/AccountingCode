@@ -456,15 +456,17 @@ function ComputeMonthlyIncome() {
 }
 
 function AddIncomeRow() {
-  const BUDGET_PLANNER_TAB = new GoogleSheetTabs(BUDGET_PLANNER_TAB_NAME)
   const UI = SpreadsheetApp.getUi()
   const YEAR_INPUT = UI.prompt("What year is this income for?", UI.ButtonSet.OK_CANCEL).getResponseText()
   const INCOME_LABEL = UI.prompt("What is the income label?", UI.ButtonSet.OK_CANCEL).getResponseText()
+
+  const BUDGET_PLANNER_TAB = new GoogleSheetTabs(BUDGET_PLANNER_TAB_NAME)
+  const JAN_LABEL_COL = BUDGET_PLANNER_TAB.GetHeaderIndex("January")
+
   const INCOME_YEAR = Number(YEAR_INPUT)
   const INCOME_PER_MONTH_COL = 1
   const INCOME_STREAM_COL = 1
   const INCOME_YEAR_COL = 0
-  const JAN_LABEL_COL = BUDGET_PLANNER_TAB.GetHeaderIndex("January")
 
   const IncomePerMonthRow = () => BUDGET_PLANNER_TAB.IndexOfRow(row => row[INCOME_PER_MONTH_COL] === "Income Per Month")
 
@@ -477,6 +479,7 @@ function AddIncomeRow() {
         .newDataValidation()
         .requireValueInList(VALIDATION_OPTIONS)
         .build()
+
     for (let i = IncomePerMonthRow(); i <= IncomeStreamRow(); i++) {
       BUDGET_PLANNER_TAB.GetRowRange(i)?.setDataValidation(null)
     }
@@ -505,28 +508,26 @@ function AddIncomeRow() {
   const __InsertRow = function(row: DataArrayEntry, row_index: number) {
     if (row[INCOME_PER_MONTH_COL] === "") {
       BUDGET_PLANNER_TAB.InsertRow(row_index, [INCOME_YEAR, INCOME_LABEL], { should_fill: true })
-      return row_index
+      return true
     }
-    if (Number(row[INCOME_YEAR_COL]) <= INCOME_YEAR) { return -1 }
+    if (Number(row[INCOME_YEAR_COL]) <= INCOME_YEAR) { return false }
     BUDGET_PLANNER_TAB.InsertRow(row_index, [INCOME_YEAR, INCOME_LABEL], { should_fill: true })
-    return row_index
+    return true
   }
   
   if (!__ValidateUserInput() || IncomePerMonthRow() === -1 || IncomeStreamRow() === -1) { return }
 
   const STOP = IncomeStreamRow()
   for(let i = IncomePerMonthRow()+1; i < STOP; i++) {
-    if (__InsertRow(BUDGET_PLANNER_TAB.GetRow(i)!, i) !== -1) { break }
+    if (__InsertRow(BUDGET_PLANNER_TAB.GetRow(i)!, i)) { break }
   }
 
   const ShouldLoop = (i: number) => i < BUDGET_PLANNER_TAB.NumberOfRows()
   const START = IncomeStreamRow()+1
   let inserted = false
   for (let i = START; ShouldLoop(i); i++) {
-    if (__InsertRow(BUDGET_PLANNER_TAB.GetRow(i)!, i) !== -1) {
-      inserted = true
-      break
-    }
+    inserted = __InsertRow(BUDGET_PLANNER_TAB.GetRow(i)!, i)
+    if (inserted) { break }
   }
 
   if (!ShouldLoop(START) || !inserted) { 
