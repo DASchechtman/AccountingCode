@@ -284,6 +284,10 @@ class Console {
   }
 }
 
+class DateRange {
+  
+}
+
 function __ConvertToStrOrNum(val: unknown) {
     let ret: number | string = ""
 
