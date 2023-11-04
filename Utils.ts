@@ -285,7 +285,8 @@ class Console {
 }
 
 class DateRange {
-  
+  public SetRange(){}
+  public PayRange() {}
 }
 
 function __ConvertToStrOrNum(val: unknown) {
