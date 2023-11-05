@@ -4,6 +4,8 @@ function GroupByDate(
   shade_red: boolean = true
 ) {
   const TAB = new GoogleSheetTabs(tab_name);
+  const CURRENT_ONE_WEEK_TAB = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME);
+  const ROW_COMPARE = new Map<string, [number, number]>()
 
   const __InsertGroupingRow = function (date: string) {
     return function (arr: DataArrayEntry) {
@@ -29,6 +31,44 @@ function GroupByDate(
     }
     return row_index - 1;
   };
+
+  const __CheckIfDateEntriesAdded = function (date: string) {
+    const CACHED_DATA = __GetCachedOneWeekLoansData()
+    const CACHE_INDEX = 0
+    const CURRENT_INDEX = 1
+
+    if (ROW_COMPARE.size > 0) {
+      let comp = ROW_COMPARE.get(date)
+      if (!comp) { return false }
+      return comp[0] !== comp[1]
+    }
+
+    for (let i = 0; i < CACHED_DATA.length; i++) {
+      if (!ROW_COMPARE.has(String(CACHED_DATA[i][DATE_COL_INDEX]))) {
+        ROW_COMPARE.set(String(CACHED_DATA[i][DATE_COL_INDEX]), [1, 0])
+      }
+      else {
+        const ARR = ROW_COMPARE.get(String(CACHED_DATA[i][DATE_COL_INDEX]))!
+        ARR[CACHE_INDEX]++
+        ROW_COMPARE.set(String(CACHED_DATA[i][DATE_COL_INDEX]), ARR)
+      }
+    }
+
+    for (let i = 0; i < CURRENT_ONE_WEEK_TAB.NumberOfRows(); i++) {
+      if (!ROW_COMPARE.has(String(CURRENT_ONE_WEEK_TAB.GetRow(i)![DATE_COL_INDEX]))) {
+        ROW_COMPARE.set(String(CURRENT_ONE_WEEK_TAB.GetRow(i)![DATE_COL_INDEX]), [0, 1])
+      }
+      else {
+        const ARR = ROW_COMPARE.get(String(CURRENT_ONE_WEEK_TAB.GetRow(i)![DATE_COL_INDEX]))!
+        ARR[CURRENT_INDEX]++
+        ROW_COMPARE.set(String(CURRENT_ONE_WEEK_TAB.GetRow(i)![DATE_COL_INDEX]), ARR)
+      }
+    }
+
+    let comp = ROW_COMPARE.get(date)
+    if (!comp) { return false }
+    return comp[0] !== comp[1]
+  }
 
   const GenerateLoanGroupHeader = function () {
     let last_recorded_date = "";
@@ -75,13 +115,13 @@ function GroupByDate(
   const GroupRowsInSheet = function () {
     const LIGHT_RED_SHADES = ["#FF7F7F", "#FF9F9F"]
     let i = 0
-   
+
     BOUNDRIES.forEach((val, key) => {
       const DUE_DATE = new Date(val[2])
       const CUR_DATE = new Date()
       const DUE_DATE_HAS_PASSED = __CompareDates(CUR_DATE, DUE_DATE)
-      const GROUP_RANGE = TAB.GetTab().getRange(val[0]+1, 1, val[1], TAB.GetTab().getLastColumn())
-      const COLOR_RANGE = TAB.GetTab().getRange(val[0], 1, val[1]+1, TAB.GetTab().getLastColumn())
+      const GROUP_RANGE = TAB.GetTab().getRange(val[0] + 1, 1, val[1], TAB.GetTab().getLastColumn())
+      const COLOR_RANGE = TAB.GetTab().getRange(val[0], 1, val[1] + 1, TAB.GetTab().getLastColumn())
 
       if (DUE_DATE_HAS_PASSED && shade_red) {
         COLOR_RANGE.setBackground(LIGHT_RED_SHADES[i++ % LIGHT_RED_SHADES.length])
@@ -89,9 +129,11 @@ function GroupByDate(
 
       try {
         let GROUP = TAB.GetTab().getRowGroup(val[0], 1)
-        GROUP?.remove()
-        GROUP_RANGE.shiftRowGroupDepth(1)
-        GROUP = TAB.GetTab().getRowGroup(val[0], 1)
+        if (__CheckIfDateEntriesAdded(__CreateDateString(DUE_DATE))) {
+          GROUP?.remove()
+          GROUP_RANGE.shiftRowGroupDepth(1)
+          GROUP = TAB.GetTab().getRowGroup(val[0], 1)
+        }
         if (DUE_DATE_HAS_PASSED) {
           GROUP?.collapse()
         }
@@ -165,7 +207,7 @@ function ComputeTotal() {
       }
     }
     else if (last_recorded_date === "" || last_recorded_date !== DUE_DATE) {
-      if (last_recorded_date !== "") { 
+      if (last_recorded_date !== "") {
         TOTAL_INDEX[last_amt] = __AddToFixed(total, 0, Math.ceil)
       }
       last_recorded_date = DUE_DATE;
@@ -290,7 +332,7 @@ function AddMultiWeekLoanToRepayment(start_row: number) {
     ONE_WEEK_TAB.GetHeaderIndex("Purchase Location"),
     ONE_WEEK_TAB.GetHeaderIndex("Card")
   ]
-  
+
   const [
     WEEKLY_TAB_DUE_DATE_COL_INDEX,
     WEEKLY_TAB_PURCHASE_DATE_COL_INDEX,
@@ -312,7 +354,7 @@ function AddMultiWeekLoanToRepayment(start_row: number) {
 
     let ret: [number, number] = [i, 0]
 
-    while(true) {
+    while (true) {
       const ROW = ONE_WEEK_TAB.GetRow(i)
       if (!ROW) { break }
       if (ROW[WEEKLY_TAB_DUE_DATE_COL_INDEX] !== date) { break }
@@ -339,15 +381,15 @@ function AddMultiWeekLoanToRepayment(start_row: number) {
   let purchase_desc = ""
   let credit_card_name = ""
 
-  for(let i = start_row; i < MULTI_WEEK_TAB.NumberOfRows(); i++) {
+  for (let i = start_row; i < MULTI_WEEK_TAB.NumberOfRows(); i++) {
     const ROW = MULTI_WEEK_TAB.GetRow(i)
     if (!ROW) { continue }
 
     const DUE_DATE = String(ROW[MULTI_TAB_DUE_DATE_COL_INDEX])
     if (DUE_DATE === "") { continue }
 
-    if (ROW[MULTI_TAB_PURCHASE_LOCATION_COL_INDEX] !== "" ) { purchase_desc = String(ROW[MULTI_TAB_PURCHASE_LOCATION_COL_INDEX]) }
-    if (ROW[MULTI_TAB_CARD_COL_INDEX] !== "" ) { credit_card_name = String(ROW[MULTI_TAB_CARD_COL_INDEX]) }
+    if (ROW[MULTI_TAB_PURCHASE_LOCATION_COL_INDEX] !== "") { purchase_desc = String(ROW[MULTI_TAB_PURCHASE_LOCATION_COL_INDEX]) }
+    if (ROW[MULTI_TAB_CARD_COL_INDEX] !== "") { credit_card_name = String(ROW[MULTI_TAB_CARD_COL_INDEX]) }
 
     const [START_INDEX, END_INDEX] = __GetDateIndexBoundries(DUE_DATE)
     if (__HasMultiWeekRepayment(START_INDEX, END_INDEX, purchase_desc)) { continue }
@@ -381,8 +423,8 @@ function ComputeMonthlyIncome() {
     return true
   }
 
-  const __DansPayDay = function ({total_days, inc}: PayOutParams) {
-    const SHOULD_PAY =  total_days % (inc * 2) === 0;
+  const __DansPayDay = function ({ total_days, inc }: PayOutParams) {
+    const SHOULD_PAY = total_days % (inc * 2) === 0;
     return SHOULD_PAY;
   }
 
@@ -392,10 +434,10 @@ function ComputeMonthlyIncome() {
   const MY_PAY_DAY = new PayDay(880.78, start_date, __DansPayDay);
   MY_PAY_DAY.SetPayoutDate(__SetDateToNextFri(LAST_YEAR));
 
-  const __SetCellToFormula = function(row: DataArrayEntry, cell_index: number, data: number) {
+  const __SetCellToFormula = function (row: DataArrayEntry, cell_index: number, data: number) {
     row[cell_index] = `${data}`
     if (cell_index > 1) {
-      const COL_LETTER = __IndexToColLetter(cell_index-2)
+      const COL_LETTER = __IndexToColLetter(cell_index - 2)
       row[cell_index] += `+IF(${COL_LETTER}24>0,${COL_LETTER}24,0)`
     }
     else {
@@ -406,7 +448,7 @@ function ComputeMonthlyIncome() {
         if (REMAINING_BUDGET_ROW) {
           row[cell_index] += `+'${LAST_SHEET_NAME}'!${__IndexToColLetter(REMAINING_BUDGET_ROW.length - 2)}24`
         }
-      } catch {}
+      } catch { }
     }
 
     row[cell_index] = `=MIN(${row[cell_index]},5000)`
@@ -472,31 +514,31 @@ function AddIncomeRow() {
 
   const IncomeStreamRow = () => BUDGET_PLANNER_TAB.IndexOfRow(row => row[INCOME_STREAM_COL] === "Income Stream")
 
-  const __AddValidationToRow = function() {
+  const __AddValidationToRow = function () {
     const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
     const VALIDATION_OPTIONS = [...WEEKDAYS.map(day => PAYMENT_SCHEDULE.map(pay => `${day} : ${pay}`)).flat(), "Custom", "N/A"]
     const VALIDATION = SpreadsheetApp
-        .newDataValidation()
-        .requireValueInList(VALIDATION_OPTIONS)
-        .build()
+      .newDataValidation()
+      .requireValueInList(VALIDATION_OPTIONS)
+      .build()
 
     for (let i = IncomePerMonthRow(); i <= IncomeStreamRow(); i++) {
       BUDGET_PLANNER_TAB.GetRowRange(i)?.setDataValidation(null)
     }
 
-    for (let j = IncomeStreamRow()+1; j < BUDGET_PLANNER_TAB.NumberOfRows(); j++) {
+    for (let j = IncomeStreamRow() + 1; j < BUDGET_PLANNER_TAB.NumberOfRows(); j++) {
       const ROW = BUDGET_PLANNER_TAB.GetRow(j)!
-      for (let i = JAN_LABEL_COL-1; i < ROW.length; i += 2) {
-        BUDGET_PLANNER_TAB.GetTab().getRange(j+1, i+1).setDataValidation(VALIDATION)
+      for (let i = JAN_LABEL_COL - 1; i < ROW.length; i += 2) {
+        BUDGET_PLANNER_TAB.GetTab().getRange(j + 1, i + 1).setDataValidation(VALIDATION)
         if (ROW[i] !== "") { continue }
-        ROW[i] = VALIDATION_OPTIONS[VALIDATION_OPTIONS.length-1]
-        ROW[i+1] = "-"
+        ROW[i] = VALIDATION_OPTIONS[VALIDATION_OPTIONS.length - 1]
+        ROW[i + 1] = "-"
       }
       BUDGET_PLANNER_TAB.WriteRow(j, ROW)
     }
   }
 
-  const __ValidateUserInput = function() {
+  const __ValidateUserInput = function () {
     if (!isNaN(INCOME_YEAR) && INCOME_LABEL !== "") { return true }
     let alert = ""
     if (isNaN(INCOME_YEAR)) { alert = `Please enter a valid year instead of '${YEAR_INPUT}'` }
@@ -505,7 +547,7 @@ function AddIncomeRow() {
     return false
   }
 
-  const __InsertRow = function(row: DataArrayEntry, row_index: number) {
+  const __InsertRow = function (row: DataArrayEntry, row_index: number) {
     if (row[INCOME_PER_MONTH_COL] === "") {
       BUDGET_PLANNER_TAB.InsertRow(row_index, [INCOME_YEAR, INCOME_LABEL], { should_fill: true })
       return true
@@ -514,29 +556,29 @@ function AddIncomeRow() {
     BUDGET_PLANNER_TAB.InsertRow(row_index, [INCOME_YEAR, INCOME_LABEL], { should_fill: true })
     return true
   }
-  
+
   if (!__ValidateUserInput() || IncomePerMonthRow() === -1 || IncomeStreamRow() === -1) { return }
 
   const STOP = IncomeStreamRow()
-  for(let i = IncomePerMonthRow()+1; i < STOP; i++) {
+  for (let i = IncomePerMonthRow() + 1; i < STOP; i++) {
     if (__InsertRow(BUDGET_PLANNER_TAB.GetRow(i)!, i)) { break }
   }
 
   const ShouldLoop = (i: number) => i < BUDGET_PLANNER_TAB.NumberOfRows()
-  const START = IncomeStreamRow()+1
+  const START = IncomeStreamRow() + 1
   let inserted = false
   for (let i = START; ShouldLoop(i); i++) {
     inserted = __InsertRow(BUDGET_PLANNER_TAB.GetRow(i)!, i)
     if (inserted) { break }
   }
 
-  if (!ShouldLoop(START) || !inserted) { 
+  if (!ShouldLoop(START) || !inserted) {
     BUDGET_PLANNER_TAB.AppendRow([INCOME_YEAR, INCOME_LABEL], true)
   }
 
   __AddValidationToRow()
 
-  
+
   BUDGET_PLANNER_TAB.SaveToTab()
 }
 
@@ -564,9 +606,9 @@ function ComputeIncomeForEachMonth() {
   let pay_schedule = ""
   let pay = 0
 
-  const __SetDate = function(day: string) {
+  const __SetDate = function (day: string) {
     let day_code = -1
-    switch(day) {
+    switch (day) {
       case MON: { day_code = 1; break }
       case TUE: { day_code = 2; break }
       case WED: { day_code = 3; break }
@@ -574,26 +616,26 @@ function ComputeIncomeForEachMonth() {
       case FRI: { day_code = 5; break }
     }
 
-    return function(date: Date) {
-      while(date.getUTCDay() !== day_code) {
+    return function (date: Date) {
+      while (date.getUTCDay() !== day_code) {
         date.setDate(date.getDate() + 1)
       }
       return date
     }
   }
 
-  const __SetPayoutCheck = function(schedule: string) {
-    switch(schedule) {
+  const __SetPayoutCheck = function (schedule: string) {
+    switch (schedule) {
       case WEEKLY: { return () => true }
-      case BI_WEEKLY: { 
-        return function(params: PayOutParams) {
+      case BI_WEEKLY: {
+        return function (params: PayOutParams) {
           return params.total_days % (params.inc * 2) === 0
         }
       }
       case SEMI_MONTHLY: {
         let month = ""
         let count = 0
-        return function(params: PayOutParams) {
+        return function (params: PayOutParams) {
           if (month !== params.pay_month) {
             month = params.pay_month
             count = 0
@@ -601,10 +643,10 @@ function ComputeIncomeForEachMonth() {
           return count++ < 2
         }
       }
-      case MONTHLY: { 
+      case MONTHLY: {
         let month = ""
         let paid = false
-        return function(params: PayOutParams) {
+        return function (params: PayOutParams) {
           if (month !== params.pay_month) {
             month = params.pay_month
             paid = false
@@ -625,25 +667,25 @@ function ComputeIncomeForEachMonth() {
     const PAY_ROW = BUDGET_TAB.GetRow(PAY_ROW_INDEX)!
     const PAY = new PayDay(0, new Date(`1/1/${ROW[0]}`), () => true)
     for (let j = JAN_COL - 1; j < ROW.length; j += 2) {
-      if (pay === 0 || PAY_ROW[j+1] !== "") { 
-        pay = Number(PAY_ROW[j+1])
+      if (pay === 0 || PAY_ROW[j + 1] !== "") {
+        pay = Number(PAY_ROW[j + 1])
         PAY.SetPayoutAmount(pay)
       }
 
       if (ROW[j] === "Custom") {
         PAY.SetPayoutCheck(__SetPayoutCheck(MONTHLY))
       }
-      else if (ROW[j] !== "N/A") { 
+      else if (ROW[j] !== "N/A") {
         [day, pay_schedule] = String(ROW[j]).split(" : ")
         PAY.SetPayoutDate(__SetDate(day))
         PAY.SetPayoutCheck(__SetPayoutCheck(pay_schedule))
       }
 
       let total = 0
-      while (PAY.PayMonth() === HEADERS[j+1]) {
+      while (PAY.PayMonth() === HEADERS[j + 1]) {
         total = __AddToFixed(total, PAY.PayOut())
       }
-      ROW[j+1] = total
+      ROW[j + 1] = total
     }
     BUDGET_TAB.WriteRow(i, ROW)
   }
@@ -655,7 +697,7 @@ function onEdit(e: unknown) {
   if (!__EventObjectIsEditEventObject(e)) { return }
   const TAB_NAME = e.range.getSheet().getName();
 
-  switch(TAB_NAME) {
+  switch (TAB_NAME) {
     case MULTI_WEEK_LOANS_TAB_NAME: {
       const GENERATED = GenerateRepaymentSchedule()
       if (GENERATED) {
@@ -688,4 +730,5 @@ function onOpen(_: SpreadSheetOpenEventObject) {
     .addItem("Add Income to Planner", "AddIncomeRow")
     .addItem("Generate Income Schedule", "ComputeIncomeForEachMonth")
     .addToUi();
+  __CacheOneWeekLoans()
 }
