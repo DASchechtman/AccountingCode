@@ -32,6 +32,16 @@ function GroupByDate(
     return row_index - 1;
   };
 
+  const __StoreCompResults = function (key: string, index: number) {
+    if (!ROW_COMPARE.has(key)) {
+      ROW_COMPARE.set(key, [0, 0])
+      ROW_COMPARE.get(key)![index]++
+    }
+    else {
+      ROW_COMPARE.get(key)![index]++
+    }
+  }
+
   const __CheckIfDateEntriesAdded = function (date: string) {
     const CACHED_DATA = __GetCachedOneWeekLoansData()
     const CACHE_INDEX = 0
@@ -44,25 +54,11 @@ function GroupByDate(
     }
 
     for (let i = 0; i < CACHED_DATA.length; i++) {
-      if (!ROW_COMPARE.has(String(CACHED_DATA[i][DATE_COL_INDEX]))) {
-        ROW_COMPARE.set(String(CACHED_DATA[i][DATE_COL_INDEX]), [1, 0])
-      }
-      else {
-        const ARR = ROW_COMPARE.get(String(CACHED_DATA[i][DATE_COL_INDEX]))!
-        ARR[CACHE_INDEX]++
-        ROW_COMPARE.set(String(CACHED_DATA[i][DATE_COL_INDEX]), ARR)
-      }
+      __StoreCompResults(String(CACHED_DATA[i]![DATE_COL_INDEX]), CACHE_INDEX)
     }
 
     for (let i = 0; i < CURRENT_ONE_WEEK_TAB.NumberOfRows(); i++) {
-      if (!ROW_COMPARE.has(String(CURRENT_ONE_WEEK_TAB.GetRow(i)![DATE_COL_INDEX]))) {
-        ROW_COMPARE.set(String(CURRENT_ONE_WEEK_TAB.GetRow(i)![DATE_COL_INDEX]), [0, 1])
-      }
-      else {
-        const ARR = ROW_COMPARE.get(String(CURRENT_ONE_WEEK_TAB.GetRow(i)![DATE_COL_INDEX]))!
-        ARR[CURRENT_INDEX]++
-        ROW_COMPARE.set(String(CURRENT_ONE_WEEK_TAB.GetRow(i)![DATE_COL_INDEX]), ARR)
-      }
+      __StoreCompResults(String(CURRENT_ONE_WEEK_TAB.GetRow(i)![DATE_COL_INDEX]), CURRENT_INDEX)
     }
 
     let comp = ROW_COMPARE.get(date)
