@@ -144,7 +144,7 @@ function GroupByDate(
   const PURCHASE_LOCATION_INDEX = TAB.GetHeaderIndex("Purchase Location");
   const CARD_INDEX = TAB.GetHeaderIndex("Card");
 
-  if (DATE_COL_INDEX === -1) {
+  if (CheckAnyAre(-1, DATE_COL_INDEX, PURCHASE_LOCATION_INDEX, CARD_INDEX)) {
     return;
   }
 
@@ -171,8 +171,8 @@ function ComputeTotal() {
   const TOTAL_INDEX = SHEET.GetCol(TOTAL_COL_HEADER);
   const PURCHASE_DATE_INDEX = SHEET.GetCol(PURCHASE_DATE_COL_HEADER)?.map(x => String(x));
 
-  if (!PURCHASE_LOCATION_INDEX || !DUE_DATE_INDEX || !AMOUNT_INDEX || !TOTAL_INDEX || !PURCHASE_DATE_INDEX) {
-    return
+  if (CheckAnyAre(undefined, [PURCHASE_LOCATION_INDEX, DUE_DATE_INDEX, AMOUNT_INDEX, TOTAL_INDEX, PURCHASE_DATE_INDEX])) {
+    return;
   }
 
   let total = 0;

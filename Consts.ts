@@ -5,6 +5,7 @@ type Spreadsheet = GoogleAppsScript.Spreadsheet.Spreadsheet;
 type Tab = GoogleAppsScript.Spreadsheet.Sheet;
 type DataArray = Array<DataArrayEntry>;
 type DataArrayEntry = Array<string | number>;
+type NotType<T, K> = T extends K ? never : T;
 
 type SpreadSheetEditEventObject = {
     authMode: GoogleAppsScript.Script.AuthMode;
