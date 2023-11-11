@@ -331,15 +331,6 @@ function AddMultiWeekLoanToRepayment(start_row: number) {
     MULTI_WEEK_TAB.GetHeaderIndex("Card")
   ]
 
-  const [
-    MULTI_TAB_DUE_DATE_COL_INDEX,
-    MULTI_TAB_PURCHASE_DATE_COL_INDEX,
-    MULTI_TAB_PAYMENT_AMT_COL_INDEX,
-    MULTI_TAB_PURCHASE_LOCATION_COL_INDEX,
-    MULTI_TAB_CARD_COL_INDEX
-  ] = MULTI_COL_INDEXES
-  if (MULTI_COL_INDEXES.includes(-1)) { return }
-
   const WEEKLY_COL_INDEXES = [
     ONE_WEEK_TAB.GetHeaderIndex("Due Date"),
     ONE_WEEK_TAB.GetHeaderIndex("Purchase Date"),
@@ -348,6 +339,17 @@ function AddMultiWeekLoanToRepayment(start_row: number) {
     ONE_WEEK_TAB.GetHeaderIndex("Card")
   ]
 
+  if (!CheckAllAreNotInvalidIndex(WEEKLY_COL_INDEXES)) { return }
+  if (!CheckAllAreNotInvalidIndex(MULTI_COL_INDEXES)) { return }
+
+  const [
+    MULTI_TAB_DUE_DATE_COL_INDEX,
+    MULTI_TAB_PURCHASE_DATE_COL_INDEX,
+    MULTI_TAB_PAYMENT_AMT_COL_INDEX,
+    MULTI_TAB_PURCHASE_LOCATION_COL_INDEX,
+    MULTI_TAB_CARD_COL_INDEX
+  ] = MULTI_COL_INDEXES
+
   const [
     WEEKLY_TAB_DUE_DATE_COL_INDEX,
     WEEKLY_TAB_PURCHASE_DATE_COL_INDEX,
@@ -355,7 +357,6 @@ function AddMultiWeekLoanToRepayment(start_row: number) {
     WEEKLY_TAB_PURCHASE_LOCATION_COL_INDEX,
     WEEKLY_TAB_CARD_COL_INDEX
   ] = WEEKLY_COL_INDEXES
-  if (WEEKLY_COL_INDEXES.includes(-1)) { return }
 
   const __GetDateIndexBoundries = function (date: string): [number, number] {
     let i = 0
