@@ -139,14 +139,22 @@ function GroupByDate(
     })
   }
 
+  const COL_INDEXES = [
+    TAB.GetHeaderIndex(date_header),
+    TAB.GetHeaderIndex("Purchase Location"),
+    TAB.GetHeaderIndex("Card")
+  ]
+ 
 
-  const DATE_COL_INDEX = TAB.GetHeaderIndex(date_header);
-  const PURCHASE_LOCATION_INDEX = TAB.GetHeaderIndex("Purchase Location");
-  const CARD_INDEX = TAB.GetHeaderIndex("Card");
-
-  if (CheckAnyAre(-1, DATE_COL_INDEX, PURCHASE_LOCATION_INDEX, CARD_INDEX)) {
+  if (!CheckAnyAreNotInvalidIndex(COL_INDEXES)) {
     return;
   }
+
+  const [
+    DATE_COL_INDEX,
+    PURCHASE_LOCATION_INDEX,
+    CARD_INDEX
+  ] = COL_INDEXES
 
   GenerateLoanGroupHeader()
   const BOUNDRIES = GetGroupBoundries()
@@ -165,23 +173,34 @@ function ComputeTotal() {
   const TOTAL_COL_HEADER = "Total";
   const PURCHASE_DATE_COL_HEADER = "Purchase Date";
 
-  const PURCHASE_LOCATION_INDEX = SHEET.GetCol(PURCHASE_COL_HEADER)?.map(x => String(x));
-  const DUE_DATE_INDEX = SHEET.GetCol(DUE_DATE_COL_HEADER)?.map(x => String(x));
-  const AMOUNT_INDEX = SHEET.GetCol(AMOUNT_COL_HEADER)
-  const TOTAL_INDEX = SHEET.GetCol(TOTAL_COL_HEADER);
-  const PURCHASE_DATE_INDEX = SHEET.GetCol(PURCHASE_DATE_COL_HEADER)?.map(x => String(x));
+  const COLS = [
+    SHEET.GetCol(PURCHASE_COL_HEADER),
+    SHEET.GetCol(DUE_DATE_COL_HEADER),
+    SHEET.GetCol(AMOUNT_COL_HEADER),
+    SHEET.GetCol(TOTAL_COL_HEADER),
+    SHEET.GetCol(PURCHASE_DATE_COL_HEADER)
+  ]
 
-  if (CheckAnyAre(undefined, [PURCHASE_LOCATION_INDEX, DUE_DATE_INDEX, AMOUNT_INDEX, TOTAL_INDEX, PURCHASE_DATE_INDEX])) {
+  if (!CheckAnyAreNotUndefined(COLS)) {
+    COLS
     return;
   }
+  
+  const [
+    PURCHASE_LOCATION_INDEX,
+    DUE_DATE_INDEX,
+    AMOUNT_INDEX,
+    TOTAL_INDEX,
+    PURCHASE_DATE_INDEX
+  ] = COLS
 
   let total = 0;
   let last_amt = 0
   let last_recorded_date = "";
 
   for (let i = 1; i < SHEET.NumberOfRows(); i++) {
-    const PURCHASE_LOCATION = PURCHASE_LOCATION_INDEX[i];
-    const DUE_DATE = DUE_DATE_INDEX[i];
+    const PURCHASE_LOCATION = String(PURCHASE_LOCATION_INDEX[i]);
+    const DUE_DATE = String(DUE_DATE_INDEX[i])
     const AMOUNT = typeof AMOUNT_INDEX[i] === "number" ? Number(AMOUNT_INDEX[i]) : -1;
 
     if (PURCHASE_LOCATION.includes(PURCHASE_HEADER)) {
