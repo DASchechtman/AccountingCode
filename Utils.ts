@@ -498,3 +498,33 @@ function __Test() {
     }
   }
 }
+
+function __CacheOneWeekLoans() {
+  const TAB = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME)
+  const DATA: DataArray = []
+
+  for (let i = 1; i < TAB.NumberOfRows(); i++) {
+    const ROW = TAB.GetRow(i)
+    if (ROW === undefined) { continue }
+    DATA.push(ROW)
+  }
+
+  PropertiesService.getDocumentProperties().setProperty(ONE_WEEK_LOANS_TAB_NAME, JSON.stringify(DATA))
+}
+
+function __GetCachedOneWeekLoansData() {
+  let data = PropertiesService.getDocumentProperties().getProperty(ONE_WEEK_LOANS_TAB_NAME)
+  if (data === null) { 
+    __CacheOneWeekLoans()
+    data = PropertiesService.getDocumentProperties().getProperty(ONE_WEEK_LOANS_TAB_NAME)!
+  }
+  return JSON.parse(data) as DataArray
+}
+
+function CheckAllAreNotUndefined<T>(vals: T[]): vals is (T extends undefined ? never : T)[] {
+  return !vals.some(val => val === undefined)
+}
+
+function CheckAllAreNotInvalidIndex<T>(vals: T[]): vals is (T extends -1 ? never : T)[] {
+  return !vals.some(val => val === -1)
+}
