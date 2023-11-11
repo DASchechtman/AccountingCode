@@ -146,7 +146,7 @@ function GroupByDate(
   ]
  
 
-  if (!CheckAllAreNotInvalidIndex(COL_INDEXES)) {
+  if (!__CheckAllAreNotInvalidIndex(COL_INDEXES)) {
     return;
   }
 
@@ -181,7 +181,7 @@ function ComputeTotal() {
     SHEET.GetCol(PURCHASE_DATE_COL_HEADER)
   ]
 
-  if (!CheckAllAreNotUndefined(COLS)) {
+  if (!__CheckAllAreNotUndefined(COLS)) {
     COLS
     return;
   }
@@ -339,8 +339,8 @@ function AddMultiWeekLoanToRepayment(start_row: number) {
     ONE_WEEK_TAB.GetHeaderIndex("Card")
   ]
 
-  if (!CheckAllAreNotInvalidIndex(WEEKLY_COL_INDEXES)) { return }
-  if (!CheckAllAreNotInvalidIndex(MULTI_COL_INDEXES)) { return }
+  if (!__CheckAllAreNotInvalidIndex(WEEKLY_COL_INDEXES)) { return }
+  if (!__CheckAllAreNotInvalidIndex(MULTI_COL_INDEXES)) { return }
 
   const [
     MULTI_TAB_DUE_DATE_COL_INDEX,

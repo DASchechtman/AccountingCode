@@ -521,10 +521,23 @@ function __GetCachedOneWeekLoansData() {
   return JSON.parse(data) as DataArray
 }
 
-function CheckAllAreNotUndefined<T>(vals: T[]): vals is (T extends undefined ? never : T)[] {
-  return vals.every(val => val !== undefined)
+function __CheckAllAreNotUndefined<T>(vals: T[]): vals is (T extends undefined ? never : T)[] {
+  return __CheckAllAreNot(undefined, vals)
 }
 
-function CheckAllAreNotInvalidIndex<T>(vals: T[]): vals is (T extends -1 ? never : T)[] {
-  return vals.every(val => val !== -1)
+function __CheckAllAreNotInvalidIndex<T>(vals: T[]): vals is (T extends -1 ? never : T)[] {
+  return __CheckAllAreNot(-1, vals)
+}
+
+function __CheckAllAreNot<T>(check_type: T, vals: unknown[]) {
+  let all_are_not = true
+
+  for (const VAL of vals) {
+    if (VAL === check_type) {
+      all_are_not = false
+      break
+    }
+  }
+
+  return all_are_not
 }
