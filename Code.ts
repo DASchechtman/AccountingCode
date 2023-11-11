@@ -146,7 +146,7 @@ function GroupByDate(
   ]
  
 
-  if (!CheckAnyAreNotInvalidIndex(COL_INDEXES)) {
+  if (!CheckAllAreNotInvalidIndex(COL_INDEXES)) {
     return;
   }
 
@@ -181,7 +181,7 @@ function ComputeTotal() {
     SHEET.GetCol(PURCHASE_DATE_COL_HEADER)
   ]
 
-  if (!CheckAnyAreNotUndefined(COLS)) {
+  if (!CheckAllAreNotUndefined(COLS)) {
     COLS
     return;
   }
