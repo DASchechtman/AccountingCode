@@ -530,14 +530,5 @@ function __CheckAllAreNotInvalidIndex<T>(vals: T[]): vals is (T extends -1 ? nev
 }
 
 function __CheckAllAreNot<T>(check_type: T, vals: unknown[]) {
-  let all_are_not = true
-
-  for (const VAL of vals) {
-    if (VAL === check_type) {
-      all_are_not = false
-      break
-    }
-  }
-
-  return all_are_not
+  return vals.every(el => el === check_type)
 }
