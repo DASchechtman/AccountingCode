@@ -339,8 +339,10 @@ function AddMultiWeekLoanToRepayment(start_row: number) {
     ONE_WEEK_TAB.GetHeaderIndex("Card")
   ]
 
-  if (!__CheckAllAreNotInvalidIndex(WEEKLY_COL_INDEXES)) { return }
-  if (!__CheckAllAreNotInvalidIndex(MULTI_COL_INDEXES)) { return }
+  if (
+    !__CheckAllAreNotInvalidIndex(WEEKLY_COL_INDEXES)
+    || !__CheckAllAreNotInvalidIndex(MULTI_COL_INDEXES)
+  ) { return }
 
   const [
     MULTI_TAB_DUE_DATE_COL_INDEX,
