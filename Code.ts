@@ -42,16 +42,18 @@ function GroupByDate(
     }
   }
 
+  const __GetCompResults = function(key: string) {
+    const COMP = ROW_COMPARE.get(key)
+    if (!COMP) { return false }
+    return COMP[0] !== COMP[1]
+  }
+
   const __CheckIfDateEntriesAdded = function (date: string) {
     const CACHED_DATA = __GetCachedOneWeekLoansData()
     const CACHE_INDEX = 0
     const CURRENT_INDEX = 1
 
-    if (ROW_COMPARE.size > 0) {
-      let comp = ROW_COMPARE.get(date)
-      if (!comp) { return false }
-      return comp[0] !== comp[1]
-    }
+    if (ROW_COMPARE.size > 0) { return __GetCompResults(date) }
 
     for (let i = 0; i < CACHED_DATA.length; i++) {
       __StoreCompResults(String(CACHED_DATA[i]![DATE_COL_INDEX]), CACHE_INDEX)
@@ -60,10 +62,8 @@ function GroupByDate(
     for (let i = 0; i < CURRENT_ONE_WEEK_TAB.NumberOfRows(); i++) {
       __StoreCompResults(String(CURRENT_ONE_WEEK_TAB.GetRow(i)![DATE_COL_INDEX]), CURRENT_INDEX)
     }
-
-    let comp = ROW_COMPARE.get(date)
-    if (!comp) { return false }
-    return comp[0] !== comp[1]
+    
+    return __GetCompResults(date)
   }
 
   const GenerateLoanGroupHeader = function () {
