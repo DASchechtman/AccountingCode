@@ -1,5 +1,12 @@
 {
   "dependencies": {
     "@types/google-apps-script": "^1.0.66"
+  },
+  "devDependencies": {
+    "clasp": "^1.0.0",
+    "typescript": "^5.3.3"
+  },
+  "scripts": {
+    "deploy": "npx tsc && ./MoveToRoot.sh && cd ./out && npx clasp push"
   }
 }
