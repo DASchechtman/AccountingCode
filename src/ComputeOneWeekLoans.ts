@@ -1,0 +1,3 @@
+function ComputeOneWeekLoans() {
+    __ComputeTotal()
+  }
