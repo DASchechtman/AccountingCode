@@ -18,12 +18,19 @@ function onEdit(e: unknown) {
 
 function onOpen(_: SpreadSheetOpenEventObject) {
   const UI = SpreadsheetApp.getUi();
-  UI.createMenu("Budgeting")
-    .addItem("Create New Household Budget Tab", "CreateNewHouseholdBudgetTab")
-    .addItem("Compute One Week Loans", "ComputeOneWeekLoans")
-    .addItem("Add Income to Planner", "AddIncometoPlanner")
+
+  const INCOME_FUNCS = UI.createMenu("Income Features")
+    .addItem("Add Income to Planner", "AddIncomeToPlanner")
     .addItem("Generate Income Schedule", "GenerateIncomeSchedule")
+  
+  const LOAN_FUNCS = UI.createMenu("Loan Features")
+    .addItem("Compute One Week Loans", "ComputeOneWeekLoans")
     .addItem("Create Multi Week Repayment Schedule", "CreateMultiWeekRepaymentSchedule")
+
+  UI.createMenu("Budgeting")
+    .addSubMenu(INCOME_FUNCS)
+    .addSubMenu(LOAN_FUNCS)
+    .addItem("Create New Household Budget Tab", "CreateNewHouseholdBudgetTab")
     .addItem("Group One Week Loans", "GroupOneWeekLoans")
     .addToUi();
   __CacheSheets()

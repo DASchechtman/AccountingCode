@@ -134,6 +134,16 @@ class GoogleSheetTabs {
         this.data[row_index] = this.CreateRowCopy(row)
     }
 
+    public WriteRowAt(row_index: number, start: number, row: DataArrayEntry) {
+        if (row_index < 0 || row_index >= this.data.length) { return }
+        if (start < 0) { start = 0 }
+        while (start + row.length >= this.data[row_index].length) { this.data[row_index].push("") }
+
+        for (let i = 0; i < row.length; i++) {
+            this.data[row_index][start + i] = row[i]
+        }
+    }
+
     public AppendRow(row: DataArrayEntry, should_fill: boolean = false) {
         row = this.CreateRowCopy(row)
         this.data.push(row)
@@ -162,6 +172,12 @@ class GoogleSheetTabs {
         if (row_index >= this.data.length) { return this.AppendRow(row) }
         this.data.splice(row_index, 0, row)
 
+        return row
+    }
+
+    public AppendToRow(row_index: number, ...row: DataArrayElement[]) {
+        if (row_index < 0 || row_index >= this.data.length) { return undefined }
+        this.data[row_index].push(...row.map(__ConvertToStrOrNum))
         return row
     }
 
@@ -238,6 +254,10 @@ class GoogleSheetTabs {
           const width = tab.GetTab().getColumnWidth(i+1)
           tab.GetTab().setColumnWidth(i+1, width+25)
         }
+    }
+
+    public ClearTab() {
+      this.data.map(row => row.fill(""))
     }
 
     private FindLongestRowLength() {
