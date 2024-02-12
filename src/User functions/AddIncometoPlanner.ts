@@ -118,7 +118,6 @@ function __AITP_AddIncomeRow() {
         __AITP_AddYearNotInIncomeSheet(row, YEAR_INPUT, INCOME_SHEET, NEW_INCOME_TEMPLATE)
     }
     
-    
     INCOME_SHEET.SaveToTab()
 }
 

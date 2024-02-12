@@ -1,4 +1,4 @@
-function __ComputeIncomeForEachMonth() {
+function __GIS_ComputeIncomeForEachMonth() {
     const ALL_YEARS = 'ALL-YEARS'
     const BUDGET_TAB = new GoogleSheetTabs(BUDGET_PLANNER_TAB_NAME)
     const HEADERS = BUDGET_TAB.GetRow(0)!
@@ -120,5 +120,5 @@ function __ComputeIncomeForEachMonth() {
   }
 
 function GenerateIncomeSchedule() {
-    __ComputeIncomeForEachMonth()
+    __GIS_ComputeIncomeForEachMonth()
 }

@@ -1,4 +1,4 @@
-function __ComputeMonthlyIncome() {
+function __CNHB_ComputeMonthlyIncome() {
   const TAB_NAME = "Household Budget";
   const START_CELL_INDEX = 1
   let cur_year = new Date().getUTCFullYear();
@@ -83,7 +83,7 @@ function __ComputeMonthlyIncome() {
   }
 }
 
-function __CreateBudgetTab() {
+function __CNHB_CreateBudgetTab() {
     const TEMPLATE_TAB = new GoogleSheetTabs("Household Budget Template");
     const SHEET = SpreadsheetApp.getActiveSpreadsheet();
     let year = new Date().getUTCFullYear();
@@ -118,7 +118,7 @@ function __CreateBudgetTab() {
 }
 
 function CreateNewHouseholdBudgetTab() {
-    const TAB = __CreateBudgetTab()
+    const TAB = __CNHB_CreateBudgetTab()
     __Util_SetMonthDates(TAB)
-    __ComputeMonthlyIncome()
+    __CNHB_ComputeMonthlyIncome()
   }

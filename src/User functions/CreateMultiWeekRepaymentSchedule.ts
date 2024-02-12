@@ -1,4 +1,4 @@
-function __GenerateRepaymentSchedule() {
+function __CMWRS_GenerateRepaymentSchedule() {
     let generated_repayment_schedule = false
     const TAB_NAME = "Multi Week Loans";
     const TAB = new GoogleSheetTabs(TAB_NAME);
@@ -66,11 +66,11 @@ function __GenerateRepaymentSchedule() {
     TAB.WriteCol(REPAYMENT_DATE_COL_NAME, REPAYMENT_DATE_COL)
     TAB.SaveToTab()
 
-    __AddMultiWeekLoanToRepayment(last_row_index)
+    __CMWRS_AddMultiWeekLoanToRepayment(last_row_index)
     return generated_repayment_schedule
 }
 
-function __AddMultiWeekLoanToRepayment(start_row: number) {
+function __CMWRS_AddMultiWeekLoanToRepayment(start_row: number) {
     const ONE_WEEK_TAB = new GoogleSheetTabs("One Week Loans");
     const MULTI_WEEK_TAB = new GoogleSheetTabs("Multi Week Loans");
 
@@ -182,7 +182,7 @@ function __AddMultiWeekLoanToRepayment(start_row: number) {
 }
 
 function CreateMultiWeekRepaymentSchedule() {
-    const GENERATED = __GenerateRepaymentSchedule()
+    const GENERATED = __CMWRS_GenerateRepaymentSchedule()
     if (GENERATED) {
         __Util_GroupByDate("Purchase Date", MULTI_WEEK_LOANS_TAB_NAME, false);
         __Util_GroupByDate("Due Date", ONE_WEEK_LOANS_TAB_NAME);
