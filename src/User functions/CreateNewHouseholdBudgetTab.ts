@@ -15,15 +15,15 @@ function __ComputeMonthlyIncome() {
   }
 
   const ROS_PAY_DAY = new PayDay(350.95, start_date, __RosPayDay);
-  ROS_PAY_DAY.SetPayoutDate(__SetDateToNextWeds);
+  ROS_PAY_DAY.SetPayoutDate(__Util_SetDateToNextWeds);
 
   const MY_PAY_DAY = new PayDay(880.78, start_date, __DansPayDay);
-  MY_PAY_DAY.SetPayoutDate(__SetDateToNextFri(LAST_YEAR));
+  MY_PAY_DAY.SetPayoutDate(__Util_SetDateToNextFri(LAST_YEAR));
 
   const __SetCellToFormula = function (row: DataArrayEntry, cell_index: number, data: number) {
     row[cell_index] = `${data}`
     if (cell_index > 1) {
-      const COL_LETTER = __IndexToColLetter(cell_index - 2)
+      const COL_LETTER = __Util_IndexToColLetter(cell_index - 2)
       row[cell_index] += `+IF(${COL_LETTER}24>0,${COL_LETTER}24,0)`
     }
     else {
@@ -32,7 +32,7 @@ function __ComputeMonthlyIncome() {
         const PREV_TAB = new GoogleSheetTabs(LAST_SHEET_NAME);
         const REMAINING_BUDGET_ROW = PREV_TAB.FindRow(row => row[0] === "Estimated Savings:")
         if (REMAINING_BUDGET_ROW) {
-          row[cell_index] += `+'${LAST_SHEET_NAME}'!${__IndexToColLetter(REMAINING_BUDGET_ROW.length - 2)}24`
+          row[cell_index] += `+'${LAST_SHEET_NAME}'!${__Util_IndexToColLetter(REMAINING_BUDGET_ROW.length - 2)}24`
         }
       } catch { }
     }
@@ -64,10 +64,10 @@ function __ComputeMonthlyIncome() {
 
         while (ROS_PAY_DAY.PayMonth() === MONTH_ROW[i] || MY_PAY_DAY.PayMonth() === MONTH_ROW[i]) {
           if (ROS_PAY_DAY.PayMonth() === MONTH_ROW[i]) {
-            total = __AddToFixed(total, ROS_PAY_DAY.PayOut())
+            total = __Util_AddToFixed(total, ROS_PAY_DAY.PayOut())
           }
           if (MY_PAY_DAY.PayMonth() === MONTH_ROW[i]) {
-            total = __AddToFixed(total, MY_PAY_DAY.PayOut())
+            total = __Util_AddToFixed(total, MY_PAY_DAY.PayOut())
           }
         }
 
@@ -119,6 +119,6 @@ function __CreateBudgetTab() {
 
 function CreateNewHouseholdBudgetTab() {
     const TAB = __CreateBudgetTab()
-    __SetMonthDates(TAB)
+    __Util_SetMonthDates(TAB)
     __ComputeMonthlyIncome()
   }

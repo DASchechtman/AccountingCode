@@ -177,7 +177,7 @@ class GoogleSheetTabs {
 
     public AppendToRow(row_index: number, ...row: DataArrayElement[]) {
         if (row_index < 0 || row_index >= this.data.length) { return undefined }
-        this.data[row_index].push(...row.map(__ConvertToStrOrNum))
+        this.data[row_index].push(...row.map(__Util_ConvertToStrOrNum))
         return row
     }
 
@@ -194,7 +194,7 @@ class GoogleSheetTabs {
 
     public GetRowRange(row_index: number) {
         if (row_index < 0 || row_index >= this.data.length) { return undefined }
-        const RANGE_NOTATION = `A${row_index + 1}:${__IndexToColLetter(this.data[row_index].length)}${row_index + 1}`
+        const RANGE_NOTATION = `A${row_index + 1}:${__Util_IndexToColLetter(this.data[row_index].length)}${row_index + 1}`
         return this.tab.getRange(RANGE_NOTATION)
     }
 
@@ -205,7 +205,7 @@ class GoogleSheetTabs {
         if (start < 0) { start = 0 }
         if (end < 0) { end = 0 }
 
-        const RANGE_NOTATION = `${__IndexToColLetter(start)}${row_index + 1}:${__IndexToColLetter(end)}${row_index + 1}`
+        const RANGE_NOTATION = `${__Util_IndexToColLetter(start)}${row_index + 1}:${__Util_IndexToColLetter(end)}${row_index + 1}`
         return this.tab.getRange(RANGE_NOTATION)
     }
 
@@ -276,16 +276,16 @@ class GoogleSheetTabs {
             while (this.data[i].length < LONGEST_ROW) {
                 this.data[i].push("")
             }
-            this.data[i] = this.data[i].map(__ConvertToStrOrNum)
+            this.data[i] = this.data[i].map(__Util_ConvertToStrOrNum)
         }
     }
 
     private CreateRowCopy(row: any[]) {
-        return [...row].map(__ConvertToStrOrNum)
+        return [...row].map(__Util_ConvertToStrOrNum)
     }
 
     private InitSheetData() {
-      const RANGE_DATA = this.tab.getDataRange().getValues().map(row => row.map(__ConvertToStrOrNum))
+      const RANGE_DATA = this.tab.getDataRange().getValues().map(row => row.map(__Util_ConvertToStrOrNum))
       this.data = this.tab.getDataRange().getFormulas()
 
       for (let row = 0; row < RANGE_DATA.length; row++) {
@@ -298,11 +298,11 @@ class GoogleSheetTabs {
     }
 }
 
-function __ConvertToStrOrNum(val: unknown) {
+function __Util_ConvertToStrOrNum(val: unknown) {
     let ret: number | string = ""
 
     if (val instanceof Date) { 
-      ret = __CreateDateString(val)
+      ret = __Util_CreateDateString(val)
     }
     else if (typeof val === "number") {
       ret = Number(val)
@@ -318,7 +318,7 @@ function __ConvertToStrOrNum(val: unknown) {
     return ret
 }
 
-function __IndexToColLetter(index: number) {
+function __Util_IndexToColLetter(index: number) {
   const DIGITS = new Array<string>();
   const BASE = 26;
   const CHAR_CODE = "A".charCodeAt(0);
@@ -337,20 +337,20 @@ function __IndexToColLetter(index: number) {
   return DIGITS.join("");
 }
 
-function __GetDateWhenCellEmpty(cell: any) {
+function __Util_GetDateWhenCellEmpty(cell: any) {
   if (!cell) {
-    return __CreateDateString(new Date(), true);
+    return __Util_CreateDateString(new Date(), true);
   }
   return cell;
 }
 
-function __AddToFixed(num: number, add_val: number, Round?: (x: number) => number) {
+function __Util_AddToFixed(num: number, add_val: number, Round?: (x: number) => number) {
   let ret = ~~((num + add_val) * 100) / 100;
   if (Round) { ret = Round(ret); }
   return ret
 }
 
-function __SetDateToNextWeds(date: Date) {
+function __Util_SetDateToNextWeds(date: Date) {
   const WEDSDAY_INDEX = 3
   while (date.getUTCDay() !== WEDSDAY_INDEX) {
     date.setUTCDate(date.getUTCDate() + 1);
@@ -358,7 +358,7 @@ function __SetDateToNextWeds(date: Date) {
   return date;
 }
 
-function __SetDateToNextFri(year: number) {
+function __Util_SetDateToNextFri(year: number) {
   return function (date: Date) {
     while (date.getUTCDay() !== 5) {
       date.setUTCDate(date.getUTCDate() + 1);
@@ -370,7 +370,7 @@ function __SetDateToNextFri(year: number) {
   };
 }
 
-function __CreateDateString(date: Date | string, local: boolean = false) {
+function __Util_CreateDateString(date: Date | string, local: boolean = false) {
   if (typeof date === "string") {
     date = new Date(date);
   }
@@ -384,7 +384,7 @@ function __CreateDateString(date: Date | string, local: boolean = false) {
   return date_str;
 }
 
-function __SetMonthDates(tab: GoogleSheetTabs) {
+function __Util_SetMonthDates(tab: GoogleSheetTabs) {
   const DATES_ROW = tab.GetRow(2)
   if (DATES_ROW === undefined) { return }
 
@@ -417,7 +417,7 @@ function __SetMonthDates(tab: GoogleSheetTabs) {
   tab.SaveToTab()
 }
 
-function __EventObjectIsEditEventObject(e: any): e is {
+function __Util_EventObjectIsEditEventObject(e: any): e is {
   authMode: GoogleAppsScript.Script.AuthMode, 
   range: GoogleAppsScript.Spreadsheet.Range,
   source: Spreadsheet,
@@ -432,13 +432,13 @@ function __EventObjectIsEditEventObject(e: any): e is {
 /**
  * @returns {boolean} checks if date1 is greater than date2
  */
-function __CompareDates(date1: Date | string, date2: Date | string) {
-  date1 = new Date(__CreateDateString(date1));
-  date2 = new Date(__CreateDateString(date2));
+function __Util_CompareDates(date1: Date | string, date2: Date | string) {
+  date1 = new Date(__Util_CreateDateString(date1));
+  date2 = new Date(__Util_CreateDateString(date2));
   return date1.getTime() > date2.getTime();
 }
 
-function __CacheSheets() {
+function __Util_CacheSheets() {
   __CacheTab(ONE_WEEK_LOANS_TAB_NAME)
   __CacheTab(MULTI_WEEK_LOANS_TAB_NAME)
 }
@@ -456,30 +456,30 @@ function __CacheTab(tab_name: string) {
   PropertiesService.getDocumentProperties().setProperty(tab_name, JSON.stringify(DATA))
 }
 
-function __GetCachedOneWeekLoansData(tab_name: string) {
+function __Util_GetCachedOneWeekLoansData(tab_name: string) {
   let data = PropertiesService.getDocumentProperties().getProperty(tab_name)
 
   if (data === null) { 
-    __CacheSheets()
+    __Util_CacheSheets()
     data = PropertiesService.getDocumentProperties().getProperty(tab_name)!
   }
 
   return JSON.parse(data) as DataArray
 }
 
-function __CheckAllAreNotUndefined<T>(vals: T[]): vals is (T extends undefined ? never : T)[] {
-  return __CheckAllAreNot(undefined, vals)
+function __Util_CheckAllAreNotUndefined<T>(vals: T[]): vals is (T extends undefined ? never : T)[] {
+  return __Util_CheckAllAreNot(undefined, vals)
 }
 
-function __CheckAllAreNotInvalidIndex<T>(vals: T[]): vals is (T extends -1 ? never : T)[] {
-  return __CheckAllAreNot(-1, vals)
+function __Util_CheckAllAreNotInvalidIndex<T>(vals: T[]): vals is (T extends -1 ? never : T)[] {
+  return __Util_CheckAllAreNot(-1, vals)
 }
 
-function __CheckAllAreNot<T>(check_type: T, vals: unknown[]) {
+function __Util_CheckAllAreNot<T>(check_type: T, vals: unknown[]) {
   return vals.every(el => el !== check_type)
 }
 
-function __ComputeTotal() {
+function __Util_ComputeTotal() {
     const TAB_NAME = "One Week Loans";
     const SHEET = new GoogleSheetTabs(TAB_NAME);
   
@@ -497,7 +497,7 @@ function __ComputeTotal() {
       SHEET.GetCol(PURCHASE_DATE_COL_HEADER)
     ]
   
-    if (!__CheckAllAreNotUndefined(COLS)) {
+    if (!__Util_CheckAllAreNotUndefined(COLS)) {
       COLS
       return;
     }
@@ -530,16 +530,16 @@ function __ComputeTotal() {
   
       if (i + 1 === SHEET.NumberOfRows()) {
         if (last_recorded_date !== DUE_DATE) {
-          TOTAL_INDEX[last_amt] = __AddToFixed(total, 0, Math.ceil)
+          TOTAL_INDEX[last_amt] = __Util_AddToFixed(total, 0, Math.ceil)
           TOTAL_INDEX[i] = AMOUNT
         }
         else {
-          TOTAL_INDEX[i] = __AddToFixed(total, AMOUNT, Math.ceil)
+          TOTAL_INDEX[i] = __Util_AddToFixed(total, AMOUNT, Math.ceil)
         }
       }
       else if (last_recorded_date === "" || last_recorded_date !== DUE_DATE) {
         if (last_recorded_date !== "") {
-          TOTAL_INDEX[last_amt] = __AddToFixed(total, 0, Math.ceil)
+          TOTAL_INDEX[last_amt] = __Util_AddToFixed(total, 0, Math.ceil)
         }
         last_recorded_date = DUE_DATE;
         total = AMOUNT;
@@ -552,18 +552,18 @@ function __ComputeTotal() {
         TOTAL_INDEX[i] = ""
       }
   
-      PURCHASE_DATE_INDEX[i] = __GetDateWhenCellEmpty(PURCHASE_DATE_INDEX[i]);
+      PURCHASE_DATE_INDEX[i] = __Util_GetDateWhenCellEmpty(PURCHASE_DATE_INDEX[i]);
     }
   
     SHEET.WriteCol(PURCHASE_COL_HEADER, PURCHASE_LOCATION_INDEX)
     SHEET.WriteCol(DUE_DATE_COL_HEADER, DUE_DATE_INDEX)
     SHEET.WriteCol(AMOUNT_COL_HEADER, AMOUNT_INDEX)
-    SHEET.WriteCol(TOTAL_COL_HEADER, TOTAL_INDEX.map(x => typeof x === "number" ? __AddToFixed(x, 0, Math.ceil) : x))
+    SHEET.WriteCol(TOTAL_COL_HEADER, TOTAL_INDEX.map(x => typeof x === "number" ? __Util_AddToFixed(x, 0, Math.ceil) : x))
     SHEET.WriteCol(PURCHASE_DATE_COL_HEADER, PURCHASE_DATE_INDEX)
     SHEET.SaveToTab();
 }
 
-function __GroupByDate(
+function __Util_GroupByDate(
   date_header: string,
   tab_name: string,
   shade_red: boolean = true
@@ -622,7 +622,7 @@ function __GroupByDate(
   }
 
   const __CheckIfDateEntriesAltered = function (date: string) {
-    const CACHED_DATA = __GetCachedOneWeekLoansData(tab_name)
+    const CACHED_DATA = __Util_GetCachedOneWeekLoansData(tab_name)
 
     if (ROW_COMPARE.size > 0) { return __GetCompResults(date) }
 
@@ -659,7 +659,7 @@ function __GroupByDate(
         continue;
       }
 
-      const NEW_DATE = __CreateDateString(DATE_VAL);
+      const NEW_DATE = __Util_CreateDateString(DATE_VAL);
 
       if (last_recorded_date === "" || last_recorded_date !== NEW_DATE) {
         last_recorded_date = NEW_DATE;
@@ -693,7 +693,7 @@ function __GroupByDate(
     for (const [_, val] of BOUNDRIES) {
       const DUE_DATE = new Date(val[2])
       const CUR_DATE = new Date()
-      const DUE_DATE_HAS_PASSED = __CompareDates(CUR_DATE, DUE_DATE)
+      const DUE_DATE_HAS_PASSED = __Util_CompareDates(CUR_DATE, DUE_DATE)
       const GROUP_RANGE = TAB.GetTab().getRange(val[0] + 1, 1, val[1], TAB.GetTab().getLastColumn())
       const COLOR_RANGE = TAB.GetTab().getRange(val[0], 1, val[1] + 1, TAB.GetTab().getLastColumn())
 
@@ -703,7 +703,7 @@ function __GroupByDate(
 
       try {
         let GROUP = TAB.GetTab().getRowGroup(val[0], 1)
-        if (__CheckIfDateEntriesAltered(__CreateDateString(DUE_DATE))) {
+        if (__CheckIfDateEntriesAltered(__Util_CreateDateString(DUE_DATE))) {
           GROUP?.remove()
           GROUP_RANGE.shiftRowGroupDepth(1)
           GROUP = TAB.GetTab().getRowGroup(val[0], 1)
@@ -724,7 +724,7 @@ function __GroupByDate(
   ]
  
 
-  if (!__CheckAllAreNotInvalidIndex(COL_INDEXES)) {
+  if (!__Util_CheckAllAreNotInvalidIndex(COL_INDEXES)) {
     return;
   }
 

@@ -1,5 +1,5 @@
 function onEdit(e: unknown) {
-  if (!__EventObjectIsEditEventObject(e)) { return }
+  if (!__Util_EventObjectIsEditEventObject(e)) { return }
   const TAB_NAME = e.range.getSheet().getName();
 
   switch (TAB_NAME) {
@@ -7,7 +7,7 @@ function onEdit(e: unknown) {
       break
     }
     case ONE_WEEK_LOANS_TAB_NAME: {
-      __ComputeTotal()
+      __Util_ComputeTotal()
       break
     }
     case BUDGET_PLANNER_TAB_NAME: {
@@ -33,5 +33,5 @@ function onOpen(_: SpreadSheetOpenEventObject) {
     .addItem("Create New Household Budget Tab", "CreateNewHouseholdBudgetTab")
     .addItem("Group One Week Loans", "GroupOneWeekLoans")
     .addToUi();
-  __CacheSheets()
+  __Util_CacheSheets()
 }

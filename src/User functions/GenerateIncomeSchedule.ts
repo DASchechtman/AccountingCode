@@ -109,7 +109,7 @@ function __ComputeIncomeForEachMonth() {
   
         let total = 0
         while (PAY.PayMonth() === HEADERS[j + 1]) {
-          total = __AddToFixed(total, PAY.PayOut())
+          total = __Util_AddToFixed(total, PAY.PayOut())
         }
         ROW[j + 1] = total
       }

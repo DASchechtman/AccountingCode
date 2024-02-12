@@ -52,8 +52,8 @@ function __GenerateRepaymentSchedule() {
         NUM_OF_PAYMENTS_COL[i] = ""
         LOANEE_COL[i] = LOANEE
         REPAYMENT_COL[i] = installment
-        PURCHASE_COL[i] = __CreateDateString(PURCHASE_DATE)
-        REPAYMENT_DATE_COL[i] = __CreateDateString(payment_start_date)
+        PURCHASE_COL[i] = __Util_CreateDateString(PURCHASE_DATE)
+        REPAYMENT_DATE_COL[i] = __Util_CreateDateString(payment_start_date)
 
         payment_start_date.setDate(payment_start_date.getDate() + payment_days)
     }
@@ -91,8 +91,8 @@ function __AddMultiWeekLoanToRepayment(start_row: number) {
     ]
 
     if (
-        !__CheckAllAreNotInvalidIndex(WEEKLY_COL_INDEXES)
-        || !__CheckAllAreNotInvalidIndex(MULTI_COL_INDEXES)
+        !__Util_CheckAllAreNotInvalidIndex(WEEKLY_COL_INDEXES)
+        || !__Util_CheckAllAreNotInvalidIndex(MULTI_COL_INDEXES)
     ) { return }
 
     const [
@@ -184,8 +184,8 @@ function __AddMultiWeekLoanToRepayment(start_row: number) {
 function CreateMultiWeekRepaymentSchedule() {
     const GENERATED = __GenerateRepaymentSchedule()
     if (GENERATED) {
-        __GroupByDate("Purchase Date", MULTI_WEEK_LOANS_TAB_NAME, false);
-        __GroupByDate("Due Date", ONE_WEEK_LOANS_TAB_NAME);
-        __ComputeTotal();
+        __Util_GroupByDate("Purchase Date", MULTI_WEEK_LOANS_TAB_NAME, false);
+        __Util_GroupByDate("Due Date", ONE_WEEK_LOANS_TAB_NAME);
+        __Util_ComputeTotal();
     }
 }

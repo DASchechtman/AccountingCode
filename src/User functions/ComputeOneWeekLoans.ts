@@ -1,3 +1,3 @@
 function ComputeOneWeekLoans() {
-    __ComputeTotal()
-  }
+    __Util_ComputeTotal()
+}
