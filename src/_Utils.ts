@@ -107,8 +107,8 @@ class GoogleSheetTabs {
     public GetColByIndex(col_index: number) {
       if (col_index < 0 || col_index >= this.data[0].length) { return undefined }
       const COL: DataArrayEntry = []
-      for (let i = 0; i < this.data[col_index].length; i++) {
-        COL.push(this.data[col_index][i])
+      for (let i = 0; i < this.data.length; i++) {
+        COL.push(this.data[i][col_index])
       }
       return COL
     }
