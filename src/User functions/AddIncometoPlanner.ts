@@ -121,6 +121,56 @@ function __AITP_AddIncomeRow() {
     INCOME_SHEET.SaveToTab()
 }
 
+function __AITP_CreateConditionalFormatRuleList(col_index: number, row_index: number) {
+    let too_big = SpreadsheetApp.newConditionalFormatRule()
+    let too_small = SpreadsheetApp.newConditionalFormatRule()
+    let just_right = SpreadsheetApp.newConditionalFormatRule()
+
+    const DARK_RED_3 = "#3f0000"
+    const LIGHT_RED_3 = "#f3d3d9"
+    const DARK_GREEN_3 = "#003f00"
+    const LIGHT_GREEN_3 = "#d3f3d9"
+    const DARK_ORANGE_3 = "#673800"
+    const LIGHT_ORANGE_3 = "#ffd19a"
+
+    const INDEX = __Util_IndexToColLetter
+    const COL_1 = `$${INDEX(col_index)}${row_index}`
+    const COL_2 = `$${INDEX(col_index + 1)}${row_index}`
+    const COL_3 = `$${INDEX(col_index + 2)}${row_index}`
+
+    too_big.whenFormulaSatisfied(`=AND(ISNUMBER(${COL_1}), ${COL_1}<${COL_2}+${COL_3})`)
+        .setBackground(DARK_RED_3)
+        .setFontColor(LIGHT_RED_3)
+    too_small.whenFormulaSatisfied(`=AND(ISNUMBER(${COL_1}), ${COL_1}>${COL_2}+${COL_3})`)
+        .setBackground(DARK_ORANGE_3)
+        .setFontColor(LIGHT_ORANGE_3)
+    just_right.whenFormulaSatisfied(`=AND(ISNUMBER(${COL_1}), ${COL_1}=${COL_2}+${COL_3})`)
+        .setBackground(DARK_GREEN_3)
+        .setFontColor(LIGHT_GREEN_3)
+    
+    return [too_big, too_small, just_right]
+}
+
 function AddIncomeToPlanner() {
     __AITP_AddIncomeRow()
+
+    const SHEET = new GoogleSheetTabs("Settings")
+    const RULES: GoogleAppsScript.Spreadsheet.ConditionalFormatRuleBuilder[] = []
+    const START_ROW = SHEET.IndexOfRow(row => row.some(val => !isNaN(Number(val))))
+
+    for (let i = START_ROW; i < SHEET.NumberOfRows(); i++) {
+        if (i === -1) { break }
+
+        let row = SHEET.GetRow(i)!
+        for (let j = 0; j < row.length; j++) {
+            if (row[j] !== "Take Home Pay") { continue }
+            const SHEET_ROW = i + 2
+            const FORMAT_RULES = __AITP_CreateConditionalFormatRuleList(j, SHEET_ROW)
+            const RANGE_STR = `${__Util_IndexToColLetter(j)}${SHEET_ROW}:${__Util_IndexToColLetter(j)}${SHEET_ROW+11}`
+            const RANGE = SHEET.GetTab().getRange(RANGE_STR)
+            RULES.push(...FORMAT_RULES.map(rule => rule.setRanges([RANGE])))
+        }
+    }
+
+    SHEET.GetTab().setConditionalFormatRules(RULES.map(rule => rule.build()))
 }
