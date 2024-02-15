@@ -260,6 +260,10 @@ class GoogleSheetTabs {
       this.data.map(row => row.fill(""))
     }
 
+    public EraseTab() {
+      this.data = []
+    }
+
     private FindLongestRowLength() {
         let longest_row = -1
         for (let i = 0; i < this.data.length; i++) {
@@ -563,180 +567,94 @@ function __Util_ComputeTotal() {
     SHEET.SaveToTab();
 }
 
+function __Util_GroupAndHighlightOneWeekLoans(should_shade_red: boolean = true) {
+    const SHEET = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME)
+    const GROUPS = new Map<number, number>()
+    const CUR_DATE = new Date()
+    const PURCHASE_LOCATION_INDEX = SHEET.GetHeaderIndex("Purchase Location")
+    const LIGHT_RED_SHADES = ["#FF7F7F", "#FF9F9F"]
+    let cur_group = -1
+
+    for(let i = 0; i < SHEET.NumberOfRows(); i++) {
+        let row = SHEET.GetRow(i)!
+        if (row.some(value => String(value).includes(PURCHASE_HEADER))) {
+            GROUPS.set(i, 0)
+            cur_group = i
+        }
+        else if (cur_group === -1){
+            continue
+        }
+        else {
+            GROUPS.set(cur_group, GROUPS.get(cur_group)! + 1)
+        }
+    }
+
+    let color_index = 0
+    for (let [start_of_group, group_length] of GROUPS) {
+        const ROW = SHEET.GetRow(start_of_group)!
+        const DUE_DATE = new Date(String(ROW[PURCHASE_LOCATION_INDEX]).split(" ")[2])
+        const TAB = SHEET.GetTab()
+        const SHEET_PURCHASE_HEADER_ROW = start_of_group + 1
+        const RANGE_STR = `B${SHEET_PURCHASE_HEADER_ROW + 1}:B${SHEET_PURCHASE_HEADER_ROW + group_length}`
+        const RANGE = TAB.getRange(RANGE_STR)
+
+        try {
+            const GROUP = TAB.getRowGroup(SHEET_PURCHASE_HEADER_ROW + 1, 1)
+            GROUP?.remove()
+            RANGE.shiftRowGroupDepth(1)
+        }
+        catch (e) {
+            RANGE.shiftRowGroupDepth(1)
+        }
+
+        if (__Util_CompareDates(CUR_DATE, DUE_DATE) && should_shade_red) {
+            const COLOR_RANGE_STR = `${start_of_group + 1}:${start_of_group + group_length + 1}`
+            const COLOR_RANGE = TAB.getRange(COLOR_RANGE_STR)
+            COLOR_RANGE.setBackground(LIGHT_RED_SHADES[color_index++ % 2])
+            RANGE.collapseGroups()
+        }
+    }
+}
+
+function __Util_CreateHeadersForOneWeekLoans(date_header: string, tab_name: string) {
+  const TAB = new GoogleSheetTabs(tab_name)
+  const DATE_HEADER_INDEX = TAB.GetHeaderIndex(date_header)
+  const GROUPS = new Map<string, DataArray>()
+  const HEADER_KEY = "HEADERS"
+
+  GROUPS.set(HEADER_KEY, [TAB.GetRow(0)!])
+
+  for (let i = 1; i < TAB.NumberOfRows(); i++) {
+    const ROW = TAB.GetRow(i)!
+   
+    const DATE = String(ROW[DATE_HEADER_INDEX])
+    if (DATE === "") { continue }
+
+    if (!GROUPS.has(DATE)) {
+      GROUPS.set(DATE, [])
+    }
+
+    GROUPS.get(DATE)!.push(ROW)
+  }
+
+  TAB.EraseTab()
+
+  for (let [date, group] of GROUPS) {
+    if (date === HEADER_KEY) { TAB.AppendRow(group[0]); continue }
+    TAB.AppendRow(["", `${PURCHASE_HEADER} ${date}`])
+    for (let row of group) {
+      TAB.AppendRow(row)
+    }
+  }
+
+  TAB.SaveToTab()
+}
+
 function __Util_GroupByDate(
   date_header: string,
   tab_name: string,
   shade_red: boolean = true
 ) {
-  const TAB = new GoogleSheetTabs(tab_name);
-  const CURRENT_ONE_WEEK_TAB = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME);
-  const ROW_COMPARE = new Map<string, [number, number]>()
-  const CACHE_INDEX = 0
-  const CURRENT_INDEX = 1
-
-  const __InsertGroupingRow = function (date: string) {
-    return function (arr: DataArrayEntry) {
-      arr[PURCHASE_LOCATION_INDEX] = `${PURCHASE_HEADER} ${date}`;
-      if (CARD_INDEX >= 0) { arr[CARD_INDEX] = " " }
-      return arr;
-    };
-  };
-
-  const __GetNextDateGroup = function (date_header: string, row_index: number) {
-    const SEARCH_DATE = date_header.split(" ")[2];
-    const DateFound = function (row: (string | number)[]) {
-      return (
-        String(row[PURCHASE_LOCATION_INDEX]).includes(SEARCH_DATE) ||
-        String(row[DATE_COL_INDEX]).includes(SEARCH_DATE)
-      );
-    };
-    let row = TAB.GetRow(row_index);
-
-    while (row && DateFound(row)) {
-      row_index++;
-      row = TAB.GetRow(row_index);
-    }
-    return row_index - 1;
-  };
-
-  const __StoreCompResults = function (key: string, index: number) {
-    if (!ROW_COMPARE.has(key)) {
-      ROW_COMPARE.set(key, [0, 0])
-      ROW_COMPARE.get(key)![index]++
-    }
-    else {
-      ROW_COMPARE.get(key)![index]++
-    }
-  }
-
-  const __GetCompResults = function(key: string) {
-    const COMP = ROW_COMPARE.get(key)
-    if (!COMP) { return false }
-    return COMP[0] !== COMP[1]
-  }
-
-  const __GetCachedData = function(key: string, index: typeof CACHE_INDEX | typeof CURRENT_INDEX) {
-    const DATA = ROW_COMPARE.get(key)
-    if (!DATA) { return -1 }
-    return DATA[index]
-  }
-
-  const __CheckIfDateEntriesAltered = function (date: string) {
-    const CACHED_DATA = __Util_GetCachedOneWeekLoansData(tab_name)
-
-    if (ROW_COMPARE.size > 0) { return __GetCompResults(date) }
-
-    for (let i = 0; i < CACHED_DATA.length; i++) {
-      __StoreCompResults(String(CACHED_DATA[i]![DATE_COL_INDEX]), CACHE_INDEX)
-    }
-
-    for (let i = 0; i < CURRENT_ONE_WEEK_TAB.NumberOfRows(); i++) {
-      __StoreCompResults(String(CURRENT_ONE_WEEK_TAB.GetRow(i)![DATE_COL_INDEX]), CURRENT_INDEX)
-    }
-    
-    return __GetCompResults(date)
-  }
-
-  const GenerateLoanGroupHeader = function () {
-    let last_recorded_date = "";
-    const FIRST_ROW_PAST_HEADERS = 1
-
-    for (let i = FIRST_ROW_PAST_HEADERS; i < TAB.NumberOfRows(); i++) {
-      const ROW = TAB.GetRow(i)!.map(x => String(x));
-      const PURCHASE = ROW[PURCHASE_LOCATION_INDEX];
-      const DATE_VAL = ROW[DATE_COL_INDEX];
-      const DATE = PURCHASE.includes(PURCHASE_HEADER) ? PURCHASE.split(" ")[2] : "";
-
-      if (DATE !== "" && !__CheckIfDateEntriesAltered(DATE)) { 
-        const RES = __GetCachedData(DATE, CURRENT_INDEX)
-        i += RES
-        continue
-      }
-      else if (PURCHASE.includes(PURCHASE_HEADER)) {
-        i = __GetNextDateGroup(PURCHASE, i);
-        continue;
-      } else if (DATE_VAL === "") {
-        continue;
-      }
-
-      const NEW_DATE = __Util_CreateDateString(DATE_VAL);
-
-      if (last_recorded_date === "" || last_recorded_date !== NEW_DATE) {
-        last_recorded_date = NEW_DATE;
-        TAB.InsertRow(i, [], { AlterRow: __InsertGroupingRow(NEW_DATE) });
-      }
-    }
-  };
-
-  const GetGroupBoundries = function () {
-    const BOUNDRIES = new Map<string, [number, number, string]>();
-    for (let i = 1; i < TAB.NumberOfRows(); i++) {
-      const ROW = TAB.GetRow(i)
-      if (!ROW) { continue }
-
-      if (String(ROW[PURCHASE_LOCATION_INDEX]).includes(PURCHASE_HEADER)) {
-        const DATE = String(ROW[PURCHASE_LOCATION_INDEX]).split(" ")[2];
-        const ARR: [number, number, string] = [i + 1, 0, DATE]
-        i = __GetNextDateGroup(String(ROW[PURCHASE_LOCATION_INDEX]), i);
-        ARR[1] = i - (ARR[0] as number) + 1;
-        BOUNDRIES.set(DATE, ARR);
-      }
-    }
-
-    return BOUNDRIES
-  }
-
-  const GroupRowsInSheet = function () {
-    const LIGHT_RED_SHADES = ["#FF7F7F", "#FF9F9F"]
-    let i = 0
-
-    for (const [_, val] of BOUNDRIES) {
-      const DUE_DATE = new Date(val[2])
-      const CUR_DATE = new Date()
-      const DUE_DATE_HAS_PASSED = __Util_CompareDates(CUR_DATE, DUE_DATE)
-      const GROUP_RANGE = TAB.GetTab().getRange(val[0] + 1, 1, val[1], TAB.GetTab().getLastColumn())
-      const COLOR_RANGE = TAB.GetTab().getRange(val[0], 1, val[1] + 1, TAB.GetTab().getLastColumn())
-
-      if (DUE_DATE_HAS_PASSED && shade_red) {
-        COLOR_RANGE.setBackground(LIGHT_RED_SHADES[i++ % LIGHT_RED_SHADES.length])
-      }
-
-      try {
-        let GROUP = TAB.GetTab().getRowGroup(val[0], 1)
-        if (__CheckIfDateEntriesAltered(__Util_CreateDateString(DUE_DATE))) {
-          GROUP?.remove()
-          GROUP_RANGE.shiftRowGroupDepth(1)
-          GROUP = TAB.GetTab().getRowGroup(val[0], 1)
-        }
-        if (DUE_DATE_HAS_PASSED) {
-          GROUP?.collapse()
-        }
-      } catch {
-        GROUP_RANGE.shiftRowGroupDepth(1)
-      }
-    }
-  }
-
-  const COL_INDEXES = [
-    TAB.GetHeaderIndex(date_header),
-    TAB.GetHeaderIndex("Purchase Location"),
-    TAB.GetHeaderIndex("Card")
-  ]
- 
-
-  if (!__Util_CheckAllAreNotInvalidIndex(COL_INDEXES)) {
-    return;
-  }
-
-  const [
-    DATE_COL_INDEX,
-    PURCHASE_LOCATION_INDEX,
-    CARD_INDEX
-  ] = COL_INDEXES
-
-  GenerateLoanGroupHeader()
-  const BOUNDRIES = GetGroupBoundries()
-  GroupRowsInSheet()
-
-  TAB.SaveToTab();
+  __Util_CreateHeadersForOneWeekLoans(date_header, tab_name)
+  __Util_GroupAndHighlightOneWeekLoans(shade_red)
 }
