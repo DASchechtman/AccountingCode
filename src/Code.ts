@@ -22,6 +22,7 @@ function onOpen(_: SpreadSheetOpenEventObject) {
   const INCOME_FUNCS = UI.createMenu("Income Features")
     .addItem("Add Income to Planner", "AddIncomeToPlanner")
     .addItem("Generate Income Schedule", "GenerateIncomeSchedule")
+    .addItem("Figure Out Paymet Planner", "FigureOutPaymentPlanner")
   
   const LOAN_FUNCS = UI.createMenu("Loan Features")
     .addItem("Compute One Week Loans", "ComputeOneWeekLoans")

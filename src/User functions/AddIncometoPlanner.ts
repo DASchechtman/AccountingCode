@@ -151,9 +151,7 @@ function __AITP_CreateConditionalFormatRuleList(col_index: number, row_index: nu
     return [too_big, too_small, just_right]
 }
 
-function AddIncomeToPlanner() {
-    __AITP_AddIncomeRow()
-
+function __AITP_AddConditionalFormatToEarner() {
     const SHEET = new GoogleSheetTabs("Settings")
     const RULES: GoogleAppsScript.Spreadsheet.ConditionalFormatRuleBuilder[] = []
     const START_ROW = SHEET.IndexOfRow(row => row.some(val => !isNaN(Number(val))))
@@ -173,4 +171,44 @@ function AddIncomeToPlanner() {
     }
 
     SHEET.GetTab().setConditionalFormatRules(RULES.map(rule => rule.build()))
+}
+
+function __AITP_BoldAndCenterYearRows() {
+    const SHEET = new GoogleSheetTabs("Settings")
+    const FIRST_COL = SHEET.GetColByIndex(0)!
+    const BOLD_FONT = SpreadsheetApp.newTextStyle()
+        .setBold(true)
+        .build()
+
+    for (let i = 0; i < FIRST_COL.length; i++) {
+        if (isNaN(Number(FIRST_COL[i]))) { continue }
+        SHEET.GetRowRange(i)
+            ?.setTextStyle(BOLD_FONT)
+            ?.setHorizontalAlignment("center")
+    }
+}
+
+function __AITP_AddDataValidationToEarner() {
+    const SHEET = new GoogleSheetTabs("Settings")
+    const VALIDATION = SpreadsheetApp.newDataValidation()
+        .requireValueInList(["Weekly", "Bi-Weekly", "Semi-Monthly", "Monthly"])
+        .build()
+
+    for (let i = 6; i < SHEET.NumberOfRows(); i+=13) {
+        let row = SHEET.GetRow(i)!
+        for (let j = 0; j < row.length; j++) {
+            let cell = row[j]
+            if (cell !== "Frequency") { continue }
+            const COL = __Util_IndexToColLetter(j)
+            const RANGE_STR = `${COL}${i+2}:${COL}${i+13}`
+            SHEET.GetTab().getRange(RANGE_STR).setDataValidation(VALIDATION)
+        }
+    }
+}
+
+function AddIncomeToPlanner() {
+    __AITP_AddIncomeRow()
+    __AITP_AddConditionalFormatToEarner()
+    __AITP_BoldAndCenterYearRows()
+    __AITP_AddDataValidationToEarner()
 }
