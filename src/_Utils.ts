@@ -47,6 +47,10 @@ class PayDay {
     return this.months[this.GetMonthIndex()];
   }
 
+  public GetDate() {
+    return new Date(this.pay_date.getTime())
+  }
+
   private GetMonthIndex() {
     let month = this.pay_date.getUTCMonth();
     const MONTH_DAY = this.pay_date.getUTCDate();

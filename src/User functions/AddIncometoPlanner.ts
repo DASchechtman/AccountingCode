@@ -137,14 +137,15 @@ function __AITP_CreateConditionalFormatRuleList(col_index: number, row_index: nu
     const COL_1 = `$${INDEX(col_index)}${row_index}`
     const COL_2 = `$${INDEX(col_index + 1)}${row_index}`
     const COL_3 = `$${INDEX(col_index + 2)}${row_index}`
+    const COL_4 = `$${INDEX(col_index + 3)}${row_index}`
 
-    too_big.whenFormulaSatisfied(`=AND(ISNUMBER(${COL_1}), ${COL_1}<${COL_2}+${COL_3})`)
+    too_big.whenFormulaSatisfied(`=AND(ISNUMBER(${COL_1}), ${COL_1}<${COL_2}+${COL_3}+${COL_4})`)
         .setBackground(DARK_RED_3)
         .setFontColor(LIGHT_RED_3)
-    too_small.whenFormulaSatisfied(`=AND(ISNUMBER(${COL_1}), ${COL_1}>${COL_2}+${COL_3})`)
+    too_small.whenFormulaSatisfied(`=AND(ISNUMBER(${COL_1}), ${COL_1}>${COL_2}+${COL_3}+${COL_4})`)
         .setBackground(DARK_ORANGE_3)
         .setFontColor(LIGHT_ORANGE_3)
-    just_right.whenFormulaSatisfied(`=AND(ISNUMBER(${COL_1}), ${COL_1}=${COL_2}+${COL_3})`)
+    just_right.whenFormulaSatisfied(`=AND(ISNUMBER(${COL_1}), ${COL_1}=${COL_2}+${COL_3}+${COL_4})`)
         .setBackground(DARK_GREEN_3)
         .setFontColor(LIGHT_GREEN_3)
     
