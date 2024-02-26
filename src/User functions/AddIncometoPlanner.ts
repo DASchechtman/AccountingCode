@@ -134,18 +134,18 @@ function __AITP_CreateConditionalFormatRuleList(col_index: number, row_index: nu
     const LIGHT_ORANGE_3 = "#ffd19a"
 
     const INDEX = __Util_IndexToColLetter
-    const COL_1 = `$${INDEX(col_index)}${row_index}`
-    const COL_2 = `$${INDEX(col_index + 1)}${row_index}`
-    const COL_3 = `$${INDEX(col_index + 2)}${row_index}`
-    const COL_4 = `$${INDEX(col_index + 3)}${row_index}`
+    const TAKE_HOME_COL = `$${INDEX(col_index)}${row_index}`
+    const SAVING_COL = `$${INDEX(col_index + 1)}${row_index}`
+    const LE_COL = `$${INDEX(col_index + 2)}${row_index}`
+    const PERSONAL_COL = `$${INDEX(col_index + 3)}${row_index}`
 
-    too_big.whenFormulaSatisfied(`=AND(ISNUMBER(${COL_1}), ${COL_1}<${COL_2}+${COL_3}+${COL_4})`)
+    too_big.whenFormulaSatisfied(`=AND(ISNUMBER(${TAKE_HOME_COL}), ${TAKE_HOME_COL}<${SAVING_COL}+${LE_COL}+${PERSONAL_COL})`)
         .setBackground(DARK_RED_3)
         .setFontColor(LIGHT_RED_3)
-    too_small.whenFormulaSatisfied(`=AND(ISNUMBER(${COL_1}), ${COL_1}>${COL_2}+${COL_3}+${COL_4})`)
+    too_small.whenFormulaSatisfied(`=AND(ISNUMBER(${TAKE_HOME_COL}), ${TAKE_HOME_COL}>${SAVING_COL}+${LE_COL}+${PERSONAL_COL})`)
         .setBackground(DARK_ORANGE_3)
         .setFontColor(LIGHT_ORANGE_3)
-    just_right.whenFormulaSatisfied(`=AND(ISNUMBER(${COL_1}), ${COL_1}=${COL_2}+${COL_3}+${COL_4})`)
+    just_right.whenFormulaSatisfied(`=AND(ISNUMBER(${TAKE_HOME_COL}), ${TAKE_HOME_COL}=${SAVING_COL}+${LE_COL}+${PERSONAL_COL})`)
         .setBackground(DARK_GREEN_3)
         .setFontColor(LIGHT_GREEN_3)
     
