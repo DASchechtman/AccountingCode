@@ -6,6 +6,7 @@ class ParserState {
     public type: __SFI_ParserType
     
     public get target() { return this.target_str.slice(this.index) }
+    public get full_target() { return this.target_str }
     public get parser_error() { return this.parse_error_msg }
     public get is_error() { return this.parser_error.length > 0 }
 
@@ -67,6 +68,10 @@ class ParserState {
         return this.CreatePartialClone({index: this.index})
     }
 
+    public Map(func: (state: ParserStateResults) => ParserStateResults) {
+        
+    }
+
     public toString() {
         return JSON.stringify(this, null, 2)
     }
@@ -83,12 +88,23 @@ class ParserState {
 class Parser {
     private ParserFunc: __SFI_ParserFunc
 
+    public get func() { return this.ParserFunc }
+
     constructor(ParserFunc: __SFI_ParserFunc) {
         this.ParserFunc = ParserFunc
     }
 
-    public Run(target_str: string) {
-        const STATE = new ParserState(target_str)
+    public Run(target: string | ParserState) {
+        const STATE = typeof target === "string" ? new ParserState(target) : target
         return this.ParserFunc(STATE)
+    }
+
+    public Map(func: (state: ParserStateResults) => ParserStateResults) {
+        return new Parser((state: ParserState) => {
+            const NEW_STATE = this.ParserFunc(state)
+            if (NEW_STATE.is_error) { return NEW_STATE }
+            NEW_STATE.result = func(NEW_STATE.result)
+            return NEW_STATE
+        })
     }
 }

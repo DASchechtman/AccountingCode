@@ -5,4 +5,13 @@ interface ParserStateResults {
 }
 
 type __SFI_ParserFunc = (state: ParserState) => ParserState
-type __SFI_ParserType = 'INT' | 'FLOAT' | 'STR-LITERAL' | "STR" | "BOOL" | 'KEYWORD' | "NODE" | ""
+type __SFI_ParserType = (
+    'INT' |
+    'FLOAT' |
+    'STRING' |
+    'BOOLEAN' |
+    'KEYWORD' |
+    'OPERATOR' |
+    'NODE' |
+    ''
+)
