@@ -4,6 +4,10 @@ interface ParserStateResults {
     child_nodes: ParserState[]
 }
 
+interface console {
+    log: (...params: any[]) => undefined
+}
+
 type __SFI_ParserFunc = (state: ParserState) => ParserState
 type __SFI_ParserType = (
     'INT' |
@@ -13,5 +17,6 @@ type __SFI_ParserType = (
     'KEYWORD' |
     'OPERATOR' |
     'NODE' |
+    'REGEX' |
     ''
 )

@@ -1,6 +1,15 @@
+class ErrorMessage {
+    private error: string = ""
+    public get message() { return this.error }
+    public set message(value: string) { this.error = value }
+    public toString() { return this.error }
+}
+
 class ParserState {
+    private parse_error_msg: string = ""
+    private static to_str_indent: number = 0
+
     private target_str: string
-    private parse_error_msg: string
     public index: number
     public result: ParserStateResults
     public type: __SFI_ParserType
@@ -25,10 +34,10 @@ class ParserState {
     public constructor(target: ParserState);
     public constructor(...args: any[]) {
         this.target_str = ""
-        this.parse_error_msg = ""
         this.index = 0
         this.result = {res: "", extras: [], child_nodes: []}
         this.type = ""
+        this.parse_error_msg = ""
         
         if (args.length === 0) {
             return
@@ -41,8 +50,8 @@ class ParserState {
                 this.target_str = args[0].target_str
                 this.index = args[0].index
                 this.result = this.CloneResults(args[0].result)
-                this.parse_error_msg = args[0].parse_error_msg
                 this.type = args[0].type
+                this.parse_error_msg = args[0].parse_error_msg
             }
         }
     }
@@ -59,7 +68,7 @@ class ParserState {
         const NEW_STATE = this.CreateEmptyState()
         if (index) { NEW_STATE.index = index }
         if (result) { NEW_STATE.result = this.CloneResults(result) }
-        if (parse_error_msg) { NEW_STATE.parse_error_msg = parse_error_msg }
+        if (parse_error_msg) { this.parse_error_msg = parse_error_msg }
         if (type) { NEW_STATE.type = type }
         return NEW_STATE
     }
@@ -68,12 +77,40 @@ class ParserState {
         return this.CreatePartialClone({index: this.index})
     }
 
-    public Map(func: (state: ParserStateResults) => ParserStateResults) {
-        
+    public toString() {
+        const INDENT = this.CreateIndent()
+        const INDENT_OFFSET = this.CreateIndent(2)
+        const STR_ARR = new Array<string>()
+        const CHILD_STR = this.StringifyChildNodes()
+
+        STR_ARR.push(`${INDENT}{\n`)
+        STR_ARR.push(`${INDENT_OFFSET}target: ${this.target_str},\n`)
+        STR_ARR.push(`${INDENT_OFFSET}index: ${this.index},\n`)
+        STR_ARR.push(`${INDENT_OFFSET}result: "${this.result.res}",\n`)
+        STR_ARR.push(`${INDENT_OFFSET}error: "${this.parse_error_msg}",\n`)
+        STR_ARR.push(`${INDENT_OFFSET}extras: ${this.result.extras.length > 0 ? this.result.extras : '[]'},\n`)
+        STR_ARR.push(`${INDENT_OFFSET}child_nodes: [${CHILD_STR.length > 0 ? '\n'+CHILD_STR+`${INDENT_OFFSET}]` : ']'}\n`)
+        STR_ARR.push(`${INDENT}}\n`)
+
+        return STR_ARR.join("")
     }
 
-    public toString() {
-        return JSON.stringify(this, null, 2)
+    private StringifyChildNodes() {
+        ParserState.to_str_indent += 4
+        const STR_ARR = new Array<string>()
+        let i = 0
+        let len = this.result.child_nodes.length
+
+        for (const node of this.result.child_nodes) {
+            STR_ARR.push(`${node.toString().slice(0, -1)}${++i === len ? '' : ','}\n`)
+        }
+
+        ParserState.to_str_indent -= 4
+        return STR_ARR.join("")
+    }
+
+    private CreateIndent(offset: number = 0) {
+        return " ".repeat(ParserState.to_str_indent + offset)
     }
 
     private CloneResults(results: ParserStateResults) {
@@ -99,11 +136,11 @@ class Parser {
         return this.ParserFunc(STATE)
     }
 
-    public Map(func: (state: ParserStateResults) => ParserStateResults) {
+    public Map(transform: (state: ParserStateResults) => ParserStateResults) {
         return new Parser((state: ParserState) => {
             const NEW_STATE = this.ParserFunc(state)
             if (NEW_STATE.is_error) { return NEW_STATE }
-            NEW_STATE.result = func(NEW_STATE.result)
+            NEW_STATE.result = transform(NEW_STATE.result)
             return NEW_STATE
         })
     }

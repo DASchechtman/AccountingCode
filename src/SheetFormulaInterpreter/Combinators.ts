@@ -75,6 +75,36 @@ const __SFI_Int = (state: ParserState) => {
     return NEW_STATE
 }
 
+const __SFI_Regex= (regex: RegExp | string) => (state: ParserState) => {
+    if (state.is_error) { return state }
+    let match_regex: RegExp
+    if (typeof regex === 'string') {
+        match_regex = new RegExp(`^${regex}`)
+    }
+    else {
+        match_regex = new RegExp(`^${regex.source}`)
+    }
+
+    const NEW_STATE = state.CloneIndexOnly()
+    const target_str = NEW_STATE.target
+    const match = match_regex.exec(target_str)
+
+    if (target_str.length === 0) {
+        NEW_STATE.parser_error = "Unexpected End of Input."
+    }
+
+    if (!match) {
+        NEW_STATE.parser_error = `Expected '${target_str.slice(0, 1)}' at ${state.index} to match the regex '${regex}' but it did not.`
+        return NEW_STATE
+    }
+
+    NEW_STATE.result.res = match[0]
+    NEW_STATE.index += match[0].length
+    NEW_STATE.type = "REGEX"
+
+    return NEW_STATE
+}
+
 const __SFI_Float = (state: ParserState) => {
 
     if (state.is_error) { return state }
@@ -216,53 +246,4 @@ const __SFI_Optional = (parser: __SFI_ParserFunc | Parser) => (state: ParserStat
     }
 
     return next_state
-}
-
-
-
-
-function ComboMain() {
-    const data_type = new Parser(__SFI_Choice(__SFI_Bool, __SFI_Float, __SFI_Int, __SFI_Letters))
-
-    const cell = new Parser(__SFI_SequenceOf(__SFI_Letters, __SFI_Int)).Map(state => {
-        const Res = (i: number) => state.child_nodes[i].result.res
-        return {
-            res: `${Res(0)}${Res(1)}`.toLowerCase(),
-            extras: [],
-            child_nodes: []
-        }
-    })
-
-    const cell_range = new Parser(__SFI_SequenceOf(cell, __SFI_Str(":"), cell)).Map(state => {
-        const Res = (i: number) => state.child_nodes[i].result.res
-        return {
-            res: `${Res(0)}:${Res(2)}`.toLowerCase(),
-            extras: [],
-            child_nodes: []
-        }
-    })
-
-
-    const all_data = new Parser(__SFI_Choice(cell_range, cell, data_type))
-
-    const data_list_element = new Parser(__SFI_SequenceOf(all_data, __SFI_Str(","), __SFI_ManyZero(__SFI_Str(" ")))).Map(state => {
-        return { ...state.child_nodes[0].result }
-    })
-
-    const func_params = new Parser(__SFI_SequenceOf(__SFI_ManyOne(data_list_element), all_data)).Map(state => {
-        const Res = (i: number) => state.child_nodes[i].result.child_nodes
-        return {
-            res: "params",
-            extras: state.extras,
-            child_nodes: [...Res(0).flatMap(x => x), state.child_nodes[1]]
-        }
-    })
-    const func_call = new Parser(__SFI_SequenceOf(__SFI_Str("="), __SFI_Letters, __SFI_Str("("), func_params, __SFI_Str(")")))
-
-    let x = func_call.Run("=Multiply(A1, 2, B77:D18)")
-    const TAB = new GoogleSheetTabs("Settings")
-    let row = TAB.GetRow(0)!
-    row[1] = x.toString()
-    TAB.WriteRow(0, row)
-    TAB.SaveToTab()
 }
