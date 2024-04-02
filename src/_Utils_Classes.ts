@@ -310,7 +310,7 @@ class FormulaInterpreter {
     private parser: Parser
 
     constructor() {
-        this.parser = new Parser(__SFI_CellFormulaParser)
+        this.parser = new Parser(__SFI_CreateFormulaParser())
     }
 
     public ParseInput(input: string) {
