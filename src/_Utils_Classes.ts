@@ -310,74 +310,7 @@ class FormulaInterpreter {
     private parser: Parser
 
     constructor() {
-        const CELL_PARSER = new Parser(__SFI_SequenceOf(__SFI_Letters, __SFI_Int)).Map(state => {
-            const [letters, int] = [state.child_nodes[0].result.res, state.child_nodes[1].result.res]
-            return {
-                res: `${letters}${int}`.toUpperCase(),
-                extras: [],
-                child_nodes: []
-            }
-        })
-        const CELL_RANGE_PARSER = new Parser(__SFI_SequenceOf(CELL_PARSER, __SFI_Str(":"), CELL_PARSER)).Map(state => {
-            const Res = (index: number) => state.child_nodes[index].result.res
-            return {
-                res: `${Res(0)}:${Res(2)}`,
-                extras: [],
-                child_nodes: []
-            }
-        })
-        const DATE_SEG_PARSER = __SFI_Regex(/[0-9]{2,2}/)
-        const DATE_PARSER = new Parser(__SFI_SequenceOf(DATE_SEG_PARSER, __SFI_Str("/"), DATE_SEG_PARSER, __SFI_Str("/"), DATE_SEG_PARSER, DATE_SEG_PARSER)).Map(state => {
-            const Res = (index: number) => state.child_nodes[index].result.res
-
-            return {
-                res: `${Res(0)}/${Res(2)}/${Res(4)}${Res(5)}`,
-                extras: [],
-                child_nodes: []
-            }
-        })
-        const DATA_PARSER = new Parser(__SFI_Choice(DATE_PARSER, __SFI_Bool, __SFI_Float, __SFI_Int, __SFI_Letters))
-        const CELL_DATA_PARSER = new Parser(__SFI_Choice(CELL_RANGE_PARSER, CELL_PARSER, DATA_PARSER))
-        const OPER_PARSER = new Parser(__SFI_Choice(__SFI_Str("+"), __SFI_Str("-"), __SFI_Str("*"), __SFI_Str("/")))
-        const SPACES = __SFI_ManyZero(__SFI_Str(" "))
-
-        const FORMULA_CHUNK_PARSER = __SFI_ManyOne(__SFI_SequenceOf(CELL_DATA_PARSER, OPER_PARSER))
-        const FORMULA_PARSER = new Parser(__SFI_SequenceOf(__SFI_Str("="), FORMULA_CHUNK_PARSER, CELL_DATA_PARSER)).Map(state => {
-            const OPERS = state.child_nodes[1].result.child_nodes
-            const OPER_ARR = new Array<ParserState>()
-
-            for (const CHILD of OPERS) {
-                OPER_ARR.push(CHILD.result.child_nodes[0], CHILD.result.child_nodes[1])
-            }
-
-            OPER_ARR.push(state.child_nodes[2])
-
-            let str_oper = OPER_ARR.map(x => x.result.res)
-
-            for (let i = 1; i < str_oper.length; i++) {
-                let cur_char = str_oper[i]
-                let prev_char = str_oper[i - 1]
-                let res1 = /^[0-9]+$/.test(cur_char)
-                let res2 = /^[+\-*/]$/.test(prev_char)
-
-                if (res1 && res2) {
-                    let tmp = str_oper[i]
-                    str_oper[i] = str_oper[i - 1]
-                    str_oper[i - 1] = tmp
-                }
-            }
-
-            return {
-                res: str_oper.join(""),
-                extras: [],
-                child_nodes: OPER_ARR
-            }
-        })
-
-        const FUNC_PARAMS_PARSER = __SFI_ManyOne(__SFI_SequenceOf(CELL_DATA_PARSER, SPACES, __SFI_Str(","), SPACES))
-        const FUNC_FORMULA_PARSER = __SFI_SequenceOf(__SFI_Str("="), __SFI_Letters, __SFI_Str("("), FUNC_PARAMS_PARSER,  CELL_DATA_PARSER, __SFI_Str(")"))
-
-        this.parser = new Parser(__SFI_Choice(FUNC_FORMULA_PARSER, FORMULA_PARSER))
+        this.parser = new Parser(__SFI_CellFormulaParser)
     }
 
     public ParseInput(input: string) {
@@ -387,6 +320,6 @@ class FormulaInterpreter {
 }
 
 function UtilsClassMain() {
-    let y = new FormulaInterpreter().ParseInput("=5-5")
+    let y = new FormulaInterpreter().ParseInput("=5true-5")
     console.log(y.toString())
 }

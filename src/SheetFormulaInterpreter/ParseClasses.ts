@@ -1,10 +1,3 @@
-class ErrorMessage {
-    private error: string = ""
-    public get message() { return this.error }
-    public set message(value: string) { this.error = value }
-    public toString() { return this.error }
-}
-
 class ParserState {
     private parse_error_msg: string = ""
     private static to_str_indent: number = 0
@@ -80,16 +73,20 @@ class ParserState {
     public toString() {
         const INDENT = this.CreateIndent()
         const INDENT_OFFSET = this.CreateIndent(2)
-        const STR_ARR = new Array<string>()
+        const STR_ARR = new Array<string>(8)
         const CHILD_STR = this.StringifyChildNodes()
+        const EXTRAS = `[${this.result.extras.join(", ")}]`
+
+        let child_nodes = '[]'
+        if (CHILD_STR.length > 0) { child_nodes = `[\n${CHILD_STR}${INDENT_OFFSET}]`}
 
         STR_ARR.push(`${INDENT}{\n`)
         STR_ARR.push(`${INDENT_OFFSET}target: ${this.target_str},\n`)
         STR_ARR.push(`${INDENT_OFFSET}index: ${this.index},\n`)
         STR_ARR.push(`${INDENT_OFFSET}result: "${this.result.res}",\n`)
         STR_ARR.push(`${INDENT_OFFSET}error: "${this.parse_error_msg}",\n`)
-        STR_ARR.push(`${INDENT_OFFSET}extras: ${this.result.extras.length > 0 ? this.result.extras : '[]'},\n`)
-        STR_ARR.push(`${INDENT_OFFSET}child_nodes: [${CHILD_STR.length > 0 ? '\n'+CHILD_STR+`${INDENT_OFFSET}]` : ']'}\n`)
+        STR_ARR.push(`${INDENT_OFFSET}extras: ${EXTRAS},\n`)
+        STR_ARR.push(`${INDENT_OFFSET}child_nodes: ${child_nodes}\n`)
         STR_ARR.push(`${INDENT}}\n`)
 
         return STR_ARR.join("")
