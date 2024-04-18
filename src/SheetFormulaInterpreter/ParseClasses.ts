@@ -28,7 +28,7 @@ class ParserState {
     public constructor(...args: any[]) {
         this.target_str = ""
         this.index = 0
-        this.result = {res: "", extras: [], child_nodes: []}
+        this.result = {res: "", extras: [], child_nodes: [], ReconstructState: () => this.Clone()}
         this.type = ""
         this.parse_error_msg = ""
         
@@ -114,7 +114,8 @@ class ParserState {
         return {
             res: results.res,
             extras: results.extras.slice(),
-            child_nodes: results.child_nodes.map((node) => node.Clone())
+            child_nodes: results.child_nodes.map((node) => node.Clone()),
+            ReconstructState: results.ReconstructState
         }
     }
 }
@@ -133,12 +134,25 @@ class Parser {
         return this.ParserFunc(STATE)
     }
 
-    public Map(transform: (state: ParserStateResults) => ParserStateResults) {
+    public Map(transform: (state: ParserStateResults) => Partial<ParserStateResults>) {
         return new Parser((state: ParserState) => {
             const NEW_STATE = this.ParserFunc(state)
             if (NEW_STATE.is_error) { return NEW_STATE }
-            NEW_STATE.result = transform(NEW_STATE.result)
+
+            NEW_STATE.result = {...NEW_STATE.result, ...transform(NEW_STATE.result)}
             return NEW_STATE
+        })
+    }
+
+    public Chain(next: (res: ParserStateResults) => Parser | ((state: ParserState) => ParserState)) {
+        return new Parser((state: ParserState) => {
+            const NEW_STATE = this.ParserFunc(state)
+            if (NEW_STATE.is_error) { return NEW_STATE }
+            
+            let next_res = next(NEW_STATE.result)
+
+            if (typeof next_res === "object") { return next_res.Run(NEW_STATE) }
+            return next_res(NEW_STATE)
         })
     }
 }

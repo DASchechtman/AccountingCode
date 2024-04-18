@@ -247,3 +247,17 @@ const __SFI_Optional = (parser: __SFI_ParserFunc | Parser) => (state: ParserStat
 
     return next_state
 }
+
+const __SFI_EndOfInput = (state: ParserState) => {
+    if (state.is_error) { return state }
+    const NEW_STATE = state.CloneIndexOnly()
+
+    if (NEW_STATE.target.length === 0) {
+        NEW_STATE.type = "END_OF_INPUT"
+    }
+    else {
+        NEW_STATE.parser_error = "Expected End of Input."
+    }
+
+    return NEW_STATE
+}

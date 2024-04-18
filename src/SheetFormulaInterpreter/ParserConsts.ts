@@ -2,6 +2,7 @@ interface ParserStateResults {
     res: string
     extras: string[]
     child_nodes: ParserState[]
+    ReconstructState: () => ParserState
 }
 
 interface console {
@@ -18,5 +19,6 @@ type __SFI_ParserType = (
     'OPERATOR' |
     'NODE' |
     'REGEX' |
+    'END_OF_INPUT' |
     ''
 )
