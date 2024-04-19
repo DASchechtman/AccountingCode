@@ -312,14 +312,19 @@ function __SFI_ParseFormulaMain3() {
                 const X = Interpreter(node.result.child_nodes[0])
                 const Y = Interpreter(node.result.child_nodes[1])
 
-                let start = Math.min(X, Y)
-                let end = Math.max(X, Y)
-                let init_val = 0
-                if (OPER === '*' || OPER === '/') { init_val = 1 }
+                let start = X
+                let end = Y
+                let init_val = start
 
-                for (let i = start; i <= end; i++) {
-                    let j = i
-                    if (j === 0 && OPER === '/') { j = 1 }
+                while (true) {
+                    if (start === end) {
+                        break
+                    }
+                    if (start < end) { start++ }
+                    else if (start > end) { start-- }
+                    let j = start
+                    if (j === 0 && OPER === "/") { j = 1 }
+
                     init_val = OperMap.get(OPER)!(init_val, j)
                 }
                 val = init_val
