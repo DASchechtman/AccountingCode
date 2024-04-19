@@ -183,15 +183,39 @@ function __SFI_ParseFormulaMain2() {
 // playing around with code and learning more about parser combinators
 function __SFI_ParseFormulaMain3() {
     const Num = __SFI_Choice(__SFI_Float, __SFI_Int)
+    const Data = __SFI_Choice(Num, __SFI_Letters)
     const OP = __SFI_Str("(")
     const CP = __SFI_Str(")")
+    const OB = __SFI_Str("[")
+    const CB = __SFI_Str("]")
     const WS = __SFI_ManyOne(__SFI_Str(" "))
     const OpWs = __SFI_ManyZero(__SFI_Str(" "))
     const Opers = __SFI_Choice(__SFI_Str("+"), __SFI_Str("-"), __SFI_Str("*"), __SFI_Str("/"))
     const Assign = __SFI_Str("=")
 
     const ExpVal = __SFI_LazyEval(() => {
-        return __SFI_Choice(Exp, Num, __SFI_Letters)
+        return __SFI_Choice(Exp, AutoArrExp, ArrExp, Num, __SFI_Letters)
+    })
+
+    const ArrExp = new Parser(__SFI_SeqOf(OB, Opers, WS, __SFI_SepBy(Data, WS), CB)).Map(state => {
+        const OPER = state.child_nodes[1].result.res
+        const VALS = state.child_nodes[3].result.child_nodes.filter(node => node.result.res !== ' ' && node.result.res !== '').map(node => node.result.res)
+        return {
+            res: "[]",
+            extras: [OPER, ...VALS],
+            child_nodes: []
+        }
+    })
+
+    const AutoArrExp = new Parser(__SFI_SeqOf(OB, Opers, WS, Data, __SFI_Str(" to "), Data, OpWs, CB)).Map(state => {
+        const OPER = state.child_nodes[1].result.res
+        const X = state.child_nodes[3]
+        const Y = state.child_nodes[5]
+        return {
+            res: "[...]",
+            extras: [OPER],
+            child_nodes: [X, Y]
+        }
     })
 
     const Exp = new Parser(__SFI_SeqOf(OP, Opers, WS, __SFI_SepBy(ExpVal, WS), CP)).Map(state => {
@@ -205,11 +229,11 @@ function __SFI_ParseFormulaMain3() {
         }
     })
 
-    const VarExp = new Parser(__SFI_ManyZero(__SFI_SeqOf(__SFI_Letters, Assign, Num, __SFI_Str(";"), OpWs))).Map(state => {
-        let x = new Array<string>()
+    const VarExp = new Parser(__SFI_ManyZero(__SFI_SeqOf(__SFI_Letters, Assign, ExpVal, __SFI_Str(";"), OpWs))).Map(state => {
+        let x = new Array<ParserState>()
         for (const CHILD of state.child_nodes) {
-            const VAR_NAME = CHILD.result.child_nodes[0].result.res
-            const VAR_VAL = CHILD.result.child_nodes[2].result.res
+            const VAR_NAME = CHILD.result.child_nodes[0]
+            const VAR_VAL = CHILD.result.child_nodes[2]
             x.push(VAR_NAME, VAR_VAL)
         }
 
@@ -218,8 +242,8 @@ function __SFI_ParseFormulaMain3() {
 
         return {
             res: "=",
-            extras: x,
-            child_nodes: []
+            extras: [],
+            child_nodes: x
         }
     })
 
@@ -227,7 +251,11 @@ function __SFI_ParseFormulaMain3() {
 
     const Interpreter = (node: ParserState) => {
         let val = 0
-        if (node.result.child_nodes.length !== 0 && node.result.child_nodes.length !== 2) { throw new Error("Invalid Expression") }
+        const OperMap = new Map<string, (a: number, b: number) => number>()
+        OperMap.set('+', (a, b) => a + b)
+        OperMap.set('-', (a, b) => a - b)
+        OperMap.set('*', (a, b) => a * b)
+        OperMap.set('/', (a, b) => a / b)
         switch (node.result.res) {
             case '?': {
                 Interpreter(node.result.child_nodes[0])
@@ -235,29 +263,66 @@ function __SFI_ParseFormulaMain3() {
                 break
             }
             case '+': {
-                val = Interpreter(node.result.child_nodes[0]) + Interpreter(node.result.child_nodes[1])
+                if (node.result.child_nodes.length !== 0 && node.result.child_nodes.length !== 2) { throw new Error("Invalid Expression") }
+                val = OperMap.get('+')!(Interpreter(node.result.child_nodes[0]), Interpreter(node.result.child_nodes[1]))
                 break
             }
             case '-': {
-                val = Interpreter(node.result.child_nodes[0]) - Interpreter(node.result.child_nodes[1])
+                if (node.result.child_nodes.length !== 0 && node.result.child_nodes.length !== 2) { throw new Error("Invalid Expression") }
+                val = OperMap.get('-')!(Interpreter(node.result.child_nodes[0]), Interpreter(node.result.child_nodes[1]))
                 break
             }
             case '*': {
-                val = Interpreter(node.result.child_nodes[0]) * Interpreter(node.result.child_nodes[1])
+                if (node.result.child_nodes.length !== 0 && node.result.child_nodes.length !== 2) { throw new Error("Invalid Expression") }
+                val = OperMap.get('*')!(Interpreter(node.result.child_nodes[0]), Interpreter(node.result.child_nodes[1]))
                 break
             }
             case '/': {
+                if (node.result.child_nodes.length !== 0 && node.result.child_nodes.length !== 2) { throw new Error("Invalid Expression") }
                 let right_val = Interpreter(node.result.child_nodes[1])
                 if (right_val === 0) { right_val = 1 }
-                val = Interpreter(node.result.child_nodes[0]) / right_val
+                val = OperMap.get('/')!(Interpreter(node.result.child_nodes[0]), right_val)
                 break
             }
             case '=': {
-                for (let i = 0; i < node.result.extras.length; i += 2) {
-                    const VAR_NAME = node.result.extras[i]
-                    const VAR_VAL = parseFloat(node.result.extras[i + 1])
+                for (let i = 0; i < node.result.child_nodes.length; i += 2) {
+                    const VAR_NAME = node.result.child_nodes[i].result.res
+                    const VAR_VAL = Interpreter(node.result.child_nodes[i + 1])
                     mem.set(VAR_NAME, VAR_VAL)
                 }
+                break
+            }
+            case '[]': {
+                const OPER = node.result.extras.shift()!
+
+                node.result.extras = node.result.extras.map(val => {
+                    if (Number(val) === 0 && OPER === "/") { return "1" }
+                    return val
+                })
+                
+                let init_val = Number(node.result.extras.shift())
+                while (node.result.extras.length !== 0) {
+                    init_val = OperMap.get(OPER)!(init_val, Number(node.result.extras.shift()))
+                }
+                val = init_val
+                break
+            }
+            case '[...]': {
+                const OPER = node.result.extras.shift()!
+                const X = Interpreter(node.result.child_nodes[0])
+                const Y = Interpreter(node.result.child_nodes[1])
+
+                let start = Math.min(X, Y)
+                let end = Math.max(X, Y)
+                let init_val = 0
+                if (OPER === '*' || OPER === '/') { init_val = 1 }
+
+                for (let i = start; i <= end; i++) {
+                    let j = i
+                    if (j === 0 && OPER === '/') { j = 1 }
+                    init_val = OperMap.get(OPER)!(init_val, j)
+                }
+                val = init_val
                 break
             }
             case '~': { break }
@@ -283,7 +348,7 @@ function __SFI_ParseFormulaMain3() {
                 child_nodes: [state.child_nodes[0], state.child_nodes[1]]
             }
         })
-        .Run("a=10;(+ (* a 2) (- (/ 50 4 7) 2))")
+        .Run("a=100; b=(+ [/ 10 5 2 0] 0); c=[+ 1032 to 23]; (* (+ a b) c)")
 
     if (res.is_error) {
         console.log(res.parser_error)
