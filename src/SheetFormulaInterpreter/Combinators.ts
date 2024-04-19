@@ -1,5 +1,9 @@
-function __SFI_MutateParserState(mutator: __SFI_ParserFunc | Parser, state: ParserState) {
-    return typeof mutator === 'function' ? mutator(state) : mutator.Run(state)
+function __SFI_MutateParserState(mutator: __SFI_ParserFunc | Parser, state: ParserState, orig_state?: ParserState) {
+    let next = typeof mutator === 'function' ? mutator(state) : mutator.Run(state)
+    if (orig_state) {
+        orig_state.index = next.index
+    }
+    return next
 }
 
 const __SFI_Str = (str: string) => (state: ParserState) => {
@@ -75,7 +79,7 @@ const __SFI_Int = (state: ParserState) => {
     return NEW_STATE
 }
 
-const __SFI_Regex= (regex: RegExp | string) => (state: ParserState) => {
+const __SFI_Regex = (regex: RegExp | string) => (state: ParserState) => {
     if (state.is_error) { return state }
     let match_regex: RegExp
     if (typeof regex === 'string') {
@@ -158,7 +162,7 @@ const __SFI_Bool = (state: ParserState) => {
     return NEW_STATE
 }
 
-const __SFI_SequenceOf = (...parsers: (__SFI_ParserFunc | Parser)[]) => (state: ParserState) => {
+const __SFI_SeqOf = (...parsers: (__SFI_ParserFunc | Parser)[]) => (state: ParserState) => {
 
     if (state.is_error) { return state }
     const NEW_STATE = state.CloneIndexOnly()
@@ -259,5 +263,61 @@ const __SFI_EndOfInput = (state: ParserState) => {
         NEW_STATE.parser_error = "Expected End of Input."
     }
 
+    return NEW_STATE
+}
+
+const __SFI_LazyEval = (parser: () => __SFI_ParserFunc | Parser) => (state: ParserState) => {
+    return __SFI_MutateParserState(parser(), state)
+}
+
+const __SFI_SepBy = (parser: __SFI_ParserFunc | Parser, separator: __SFI_ParserFunc | Parser) => (state: ParserState) => {
+    if (state.is_error) { return state }
+    const NEW_STATE = state.CloneIndexOnly()
+    let next_state = NEW_STATE
+
+    while (true) {
+        next_state = __SFI_MutateParserState(parser, next_state, NEW_STATE)
+        if (next_state.is_error) { break }
+        NEW_STATE.result.child_nodes.push(next_state)
+
+        next_state = __SFI_MutateParserState(separator, next_state, NEW_STATE)
+        if (next_state.is_error) { break }
+        NEW_STATE.result.child_nodes.push(next_state)
+    }
+
+    NEW_STATE.type = "NODE"
+    return NEW_STATE
+}
+
+const __SFI_SepByOne = (parser: __SFI_ParserFunc | Parser, separator: __SFI_ParserFunc | Parser) => (state: ParserState) => {
+    if (state.is_error) { return state }
+    const NEW_STATE = state.CloneIndexOnly()
+    let next_state = NEW_STATE
+
+    next_state = __SFI_MutateParserState(parser, next_state, NEW_STATE)
+    if (next_state.is_error) {
+        next_state.parser_error = "Expected at least one value to be  seperated."
+        return next_state
+    }
+    NEW_STATE.result.child_nodes.push(next_state)
+
+    next_state = __SFI_MutateParserState(separator, next_state, NEW_STATE)
+    if (next_state.is_error) {
+        next_state.parser_error = "Expected at least one separator after the first value."
+        return next_state 
+    }
+    NEW_STATE.result.child_nodes.push(next_state)
+
+    while (true) {
+        next_state = __SFI_MutateParserState(parser, next_state, NEW_STATE)
+        if (next_state.is_error) { break }
+        NEW_STATE.result.child_nodes.push(next_state)
+
+        next_state = __SFI_MutateParserState(separator, next_state, NEW_STATE)
+        if (next_state.is_error) { break }
+        NEW_STATE.result.child_nodes.push(next_state)
+    }
+
+    NEW_STATE.type = "NODE"
     return NEW_STATE
 }
