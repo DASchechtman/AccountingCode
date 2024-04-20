@@ -5,7 +5,6 @@ class ParserState {
     private target_str: string
     public index: number
     public result: ParserStateResults
-    public type: __SFI_ParserType
     
     public get target() { return this.target_str.slice(this.index) }
     public get full_target() { return this.target_str }
@@ -22,14 +21,17 @@ class ParserState {
         }
     }
 
+    public set type(value: __SFI_ParserType) { this.result.type = value }
+    public get type() { return this.result.type }
+
     public constructor();
     public constructor(target: string);
     public constructor(target: ParserState);
     public constructor(...args: any[]) {
         this.target_str = ""
         this.index = 0
-        this.result = {res: "", extras: [], child_nodes: [], ReconstructState: () => this.Clone()}
-        this.type = ""
+        this.result = {res: "", extras: [], child_nodes: [], ReconstructState: () => this.Clone(), type: "NULL"}
+        this.type = "NULL"
         this.parse_error_msg = ""
         
         if (args.length === 0) {
@@ -86,7 +88,8 @@ class ParserState {
         STR_ARR.push(`${INDENT_OFFSET}result: "${this.result.res}",\n`)
         STR_ARR.push(`${INDENT_OFFSET}error: "${this.parse_error_msg}",\n`)
         STR_ARR.push(`${INDENT_OFFSET}extras: ${EXTRAS},\n`)
-        STR_ARR.push(`${INDENT_OFFSET}child_nodes: ${child_nodes}\n`)
+        STR_ARR.push(`${INDENT_OFFSET}type: "${this.type}",\n`)
+        STR_ARR.push(`${INDENT_OFFSET}child_nodes: ${child_nodes},\n`)
         STR_ARR.push(`${INDENT}}\n`)
 
         return STR_ARR.join("")
@@ -115,7 +118,8 @@ class ParserState {
             res: results.res,
             extras: results.extras.slice(),
             child_nodes: results.child_nodes.map((node) => node.Clone()),
-            ReconstructState: results.ReconstructState
+            ReconstructState: results.ReconstructState,
+            type: results.type
         }
     }
 }

@@ -25,6 +25,7 @@ function __SFI_ConvertFormulaToTree(formula: Array<ParserState>, opers: Array<st
             EL.result.child_nodes.push(LEFT, RIGHT)
             formula.splice(formula.indexOf(LEFT), 1)
             formula.splice(formula.indexOf(RIGHT), 1)
+            EL.result.type = "OPERATOR"
             i = formula.indexOf(EL)
         }
     }
@@ -32,69 +33,114 @@ function __SFI_ConvertFormulaToTree(formula: Array<ParserState>, opers: Array<st
     return formula
 }
 
-function __SFI_CreateFormulaParser() {
-    const DateSegParser = __SFI_Regex(/[0-9]{1,2}/)
-    const WhiteSpaceParser = __SFI_ManyZero(__SFI_Str(" "))
-
-    const DateParser = new Parser(__SFI_SeqOf(DateSegParser, __SFI_Str("/"), DateSegParser, __SFI_Str("/"), DateSegParser, DateSegParser)).Map(state => {
-        const DATE = state.child_nodes.map(node => node.result.res).join("")
-        return {
-            res: DATE,
-            extras: ["TYPE", "date"],
-            child_nodes: [],
-        }
-    })
-
-    const CellDataParser = __SFI_Choice(DateParser, __SFI_Int, __SFI_Float, __SFI_Bool, __SFI_Letters)
+function __SFI_CreateMathFormula() {
     const CellParser = new Parser(__SFI_SeqOf(__SFI_Letters, __SFI_Int)).Map(state => {
-        const CELL = state.child_nodes.map(node => node.result.res).join("")
         return {
-            res: CELL,
-            extras: ["TYPE", "cell"],
-            child_nodes: [],
+            res: state.child_nodes.map(n => n.result.res).join(""),
+            type: "SPREADSHEET_CELL",
+            child_nodes: []
         }
     })
+
+    const Num = new Parser(__SFI_Choice(__SFI_Float, __SFI_Int)).Map(state => {
+        return {
+            res: state.res,
+            type: "NUMBER",
+        }
+    })
+
+    const Opers = __SFI_Choice(__SFI_Str("+"), __SFI_Str("-"), __SFI_Str("*"), __SFI_Str("/"), __SFI_Str("^"))
+
+    const Exp = __SFI_LazyEval(() => {
+        const Parens = new Parser(__SFI_SeqOf(__SFI_Str("("), FormulaArgs, __SFI_Str(")"))).Map(state => {
+            return { 
+                ...state.child_nodes[1].result,
+                type: "PARENS"
+            }
+        })
+        return __SFI_Choice(Parens, CellParser, Num)
+    })
+
+    const FormulaArgs = new Parser(__SFI_SepBy(Exp, Opers)).Map(state => {
+        let formula_nodes = [...state.child_nodes]
+        __SFI_CreateFormulaTree(formula_nodes)
+        return {
+            type: "SPREADSHEET_MATH_FORMULA",
+            child_nodes: formula_nodes,
+        }
+    })
+
+    const MathFormula = new Parser(__SFI_SeqOf(__SFI_Str("="), FormulaArgs)).Map(state => {
+        return {
+            ...state.child_nodes[1].result,
+        }
+    })
+
+    return MathFormula
+}
+
+function __SFI_CreateFuncFormula() {
+    const DateSeg = __SFI_Regex(/[0-9]{1,2}/)
+
+    const DateParser = new Parser(__SFI_SeqOf(DateSeg, __SFI_Str("/"), DateSeg, __SFI_Str("/"), DateSeg, DateSeg)).Map(state => {
+        return {
+            res: state.child_nodes.map(n => n.result.res).join(""),
+            type: "DATE",
+            child_nodes: []
+        }
+    })
+
+    const CellParser = new Parser(__SFI_SeqOf(__SFI_Letters, __SFI_Int)).Map(state => {
+        return {
+            res: state.child_nodes.map(n => n.result.res).join(""),
+            type: "SPREADSHEET_CELL",
+            child_nodes: []
+        }
+    })
+
+    const Num = new Parser(__SFI_Choice(__SFI_Float, __SFI_Int)).Map(state => {
+        return {
+            res: state.res,
+            type: "NUMBER",
+        }
+    })
+
     const CellRangeParser = new Parser(__SFI_SeqOf(CellParser, __SFI_Str(":"), CellParser)).Map(state => {
-        const CELL_RANGE = state.child_nodes.map(node => node.result.res).join("")
         return {
-            res: CELL_RANGE,
-            extras: ["TYPE", "cell_range", "FROM", state.child_nodes[0].result.res, "TO", state.child_nodes[2].result.res],
-            child_nodes: [],
+            res: state.child_nodes.map(n => n.result.res).join(""),
+            type: "SPREADSHEET_RANGE",
+            child_nodes: []
         }
     })
 
+    const Args = __SFI_LazyEval(() => {
+        return __SFI_Choice(Func, DateParser, CellRangeParser, CellParser, Num, __SFI_Bool, __SFI_Letters)
+    })
 
-    const FormulaArg = __SFI_Choice(CellParser, CellDataParser)
-    const OperParser = __SFI_Choice(__SFI_Str("+"), __SFI_Str("-"), __SFI_Str("*"), __SFI_Str("/"))
-    const FormulaParam = new Parser(__SFI_ManyOne(__SFI_SeqOf(FormulaArg, WhiteSpaceParser, OperParser))).Map(state => {
-        let children = new Array<ParserState>()
+    const Comma = __SFI_SeqOf(__SFI_Str(","), __SFI_ManyZero(__SFI_Str(" ")))
 
-        for (const CHILD of state.child_nodes) {
-            children.push(CHILD.result.child_nodes[0], CHILD.result.child_nodes[2])
+    const Func = new Parser(__SFI_SeqOf(__SFI_Letters, __SFI_Str("("), __SFI_SepBy(Args, Comma), __SFI_Str(")"))).Map(state => {
+        const FUNC_NAME = state.child_nodes[0].result.res
+        const ARGS = new Array<ParserState>()
+        for (let i = 0; i < state.child_nodes[2].result.child_nodes.length; i+=2) {
+            let node = state.child_nodes[2].result.child_nodes[i]
+            ARGS.push(node)
         }
 
         return {
-            res: "",
-            extras: [],
-            child_nodes: children
-        }
-    })
-    const FormulaParser = new Parser(__SFI_SeqOf(__SFI_Str("="), FormulaParam, FormulaArg)).Map(state => {
-        let children = [...state.child_nodes[1].result.child_nodes, state.child_nodes[2]]
-        __SFI_CreateFormulaTree(children)
-        return {
-            res: "",
-            extras: ["TYPE", "formula"],
-            child_nodes: children
+            res: FUNC_NAME,
+            type: "SPREADSHEET_FUNCTION_FORMULA",
+            child_nodes: ARGS,
         }
     })
 
-    const FuncArgParser = __SFI_Choice(CellRangeParser, CellParser, CellDataParser)
-    const FuncFormulaParam = __SFI_ManyOne(__SFI_SeqOf(FuncArgParser, __SFI_Str(","), WhiteSpaceParser))
-    const FuncFormulaParamList = __SFI_SeqOf(FuncFormulaParam, FuncArgParser)
-    const FuncFormula = __SFI_SeqOf(__SFI_Str("="), __SFI_Letters, __SFI_Str("("), __SFI_Choice(FuncFormulaParamList, FuncArgParser), __SFI_Str(")"))
+    return new Parser(__SFI_SeqOf(__SFI_Str("="), Func)).Map(state => { return {...state.child_nodes[1].result} })
+}
 
-    return __SFI_Choice(FuncFormula, FormulaParser)
+function __SFI_CreateFormulaParser() {
+    let x = __SFI_CreateMathFormula()
+    let y = __SFI_CreateFuncFormula()
+    return __SFI_Choice(x, y)
 }
 
 // all the main functions below are just for me to keep recrod of my learning of parser combinators
@@ -299,7 +345,7 @@ function __SFI_ParseFormulaMain3() {
                     if (Number(val) === 0 && OPER === "/") { return "1" }
                     return val
                 })
-                
+
                 let init_val = Number(node.result.extras.shift())
                 while (node.result.extras.length !== 0) {
                     init_val = OperMap.get(OPER)!(init_val, Number(node.result.extras.shift()))
@@ -317,10 +363,8 @@ function __SFI_ParseFormulaMain3() {
                 let init_val = start
 
                 while (true) {
-                    if (start === end) {
-                        break
-                    }
-                    if (start < end) { start++ }
+                    if (start === end) { break }
+                    else if (start < end) { start++ }
                     else if (start > end) { start-- }
                     let j = start
                     if (j === 0 && OPER === "/") { j = 1 }
@@ -331,7 +375,7 @@ function __SFI_ParseFormulaMain3() {
                 break
             }
             case '~': { break }
-            default: { 
+            default: {
                 val = parseFloat(node.result.res)
                 if (isNaN(val) && mem.has(node.result.res)) {
                     val = mem.get(node.result.res)!
@@ -345,15 +389,13 @@ function __SFI_ParseFormulaMain3() {
         return val
     }
 
-    let res = new Parser(__SFI_SeqOf(VarExp, Exp))
-        .Map(state => {
-            return {
-                res: "?",
-                extras: [],
-                child_nodes: [state.child_nodes[0], state.child_nodes[1]]
-            }
-        })
-        .Run("a=100; b=(+ [/ 10 5 2 0] 0); c=[+ 1032 to 23]; (* (+ a b) c)")
+    let res = new Parser(__SFI_SeqOf(VarExp, Exp)).Map(state => {
+        return {
+            res: "?",
+            extras: [],
+            child_nodes: [state.child_nodes[0], state.child_nodes[1]]
+        }
+    }).Run("a=100; b=(+ [/ 10 5 2 0] 0); c=[+ 1 to 100]; (+ 0 c)")
 
     if (res.is_error) {
         console.log(res.parser_error)
@@ -361,4 +403,9 @@ function __SFI_ParseFormulaMain3() {
     else {
         console.log(Interpreter(res).toString())
     }
+}
+
+// this function will not be used in the project, this is just me
+// playing around with code and learning more about parser combinators
+function __SFI_ParseFormulaMain4() {
 }
