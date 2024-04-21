@@ -34,7 +34,7 @@ function __SFI_ConvertFormulaToTree(formula: Array<ParserState>, opers: Array<st
 }
 
 function __SFI_CreateMathFormula() {
-    const CellParser = new Parser(__SFI_SeqOf(__SFI_Letters, __SFI_Int)).Map(state => {
+    const CellParser = new Parser(__SFI_SeqOf(__SFI_Letters, __SFI_Digits)).Map(state => {
         return {
             res: state.child_nodes.map(n => n.result.res).join(""),
             type: "SPREADSHEET_CELL",
@@ -61,8 +61,8 @@ function __SFI_CreateMathFormula() {
         return __SFI_Choice(Parens, CellParser, Num)
     })
 
-    const FormulaArgs = new Parser(__SFI_SepBy(Exp, Opers)).Map(state => {
-        let formula_nodes = [...state.child_nodes]
+    const FormulaArgs = new Parser(__SFI_SeqOf(__SFI_SepBy(Exp, Opers), Exp)).Map(state => {
+        let formula_nodes = [...state.child_nodes[0].result.child_nodes, state.child_nodes[1]]
         __SFI_CreateFormulaTree(formula_nodes)
         return {
             type: "SPREADSHEET_MATH_FORMULA",
@@ -90,7 +90,7 @@ function __SFI_CreateFuncFormula() {
         }
     })
 
-    const CellParser = new Parser(__SFI_SeqOf(__SFI_Letters, __SFI_Int)).Map(state => {
+    const CellParser = new Parser(__SFI_SeqOf(__SFI_Letters, __SFI_Digits)).Map(state => {
         return {
             res: state.child_nodes.map(n => n.result.res).join(""),
             type: "SPREADSHEET_CELL",

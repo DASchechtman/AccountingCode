@@ -1,7 +1,7 @@
 function __SFI_MutateParserState(mutator: __SFI_ParserFunc | Parser, state: ParserState, orig_state?: ParserState) {
     const NEW_STATE = state.CloneIndexOnly()
     const NEXT = typeof mutator === 'function' ? mutator(NEW_STATE) : mutator.Run(NEW_STATE)
-    if (orig_state) {
+    if (orig_state && !NEXT.is_error) {
         orig_state.index = NEXT.index
     }
     return NEXT
@@ -72,6 +72,29 @@ const __SFI_Int = (state: ParserState) => {
 
     state.result.res = INT_MATCH[0]
     state.index += INT_MATCH[0].length
+    state.type = "INT"
+
+    return state
+}
+
+const __SFI_Digits = (state: ParserState) => {
+    if (state.is_error) { return state }
+
+    const TARGET_STR = state.target
+    const DIGITS_REGEX = /^\d+/
+    const DIGITS_MATCH = DIGITS_REGEX.exec(TARGET_STR)
+
+    if (TARGET_STR.length === 0) {
+        state.parser_error = "Unexpected End of Input."
+    }
+
+    if (!DIGITS_MATCH) {
+        state.parser_error = `Expected '${TARGET_STR.slice(0, 1)}' at ${state.index} to be a digit but it was not.`
+        return state
+    }
+
+    state.result.res = DIGITS_MATCH[0]
+    state.index += DIGITS_MATCH[0].length
     state.type = "INT"
 
     return state
@@ -288,7 +311,7 @@ const __SFI_SepByOne = (parser: __SFI_ParserFunc | Parser, separator: __SFI_Pars
     next_state = __SFI_MutateParserState(separator, next_state, state)
     if (next_state.is_error) {
         next_state.parser_error = "Expected at least one separator after the first value."
-        return next_state 
+        return next_state
     }
     state.result.child_nodes.push(next_state)
 
