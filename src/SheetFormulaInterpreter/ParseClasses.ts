@@ -75,7 +75,7 @@ class ParserState {
     public toString() {
         const INDENT = this.CreateIndent()
         const INDENT_OFFSET = this.CreateIndent(2)
-        const STR_ARR = new Array<string>(8)
+        const STR_ARR = new Array<string>()
         const CHILD_STR = this.StringifyChildNodes()
         const EXTRAS = `[${this.result.extras.join(", ")}]`
 
@@ -83,7 +83,7 @@ class ParserState {
         if (CHILD_STR.length > 0) { child_nodes = `[\n${CHILD_STR}${INDENT_OFFSET}]`}
 
         STR_ARR.push(`${INDENT}{\n`)
-        STR_ARR.push(`${INDENT_OFFSET}target: ${this.target_str},\n`)
+        STR_ARR.push(`${INDENT_OFFSET}target: "${this.target_str}",\n`)
         STR_ARR.push(`${INDENT_OFFSET}index: ${this.index},\n`)
         STR_ARR.push(`${INDENT_OFFSET}result: "${this.result.res}",\n`)
         STR_ARR.push(`${INDENT_OFFSET}error: "${this.parse_error_msg}",\n`)

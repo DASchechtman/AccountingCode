@@ -409,3 +409,11 @@ function __SFI_ParseFormulaMain3() {
 // playing around with code and learning more about parser combinators
 function __SFI_ParseFormulaMain4() {
 }
+
+// this function will not be used in the project, this is just me
+// playing around with code and learning more about parser combinators
+function __SFI_ParseFormulaMain5() {
+    const NUM = new Parser(__SFI_SeqOf(__SFI_Optional(__SFI_Str("-")), __SFI_Int))
+    console.log(NUM.Run("123").toString())
+    console.log(NUM.Run("-123").toString())
+}
