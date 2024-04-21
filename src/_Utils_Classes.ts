@@ -307,19 +307,164 @@ class GoogleSheetTabs {
 }
 
 class FormulaInterpreter {
-    private parser: Parser
+    private readonly PARSER: Parser
+    private readonly TAB: GoogleSheetTabs
+    private readonly INTERPRET_ACTION: Map<__SFI_ParserType, (state: ParserState) => ParserState | undefined>
 
-    constructor() {
-        this.parser = new Parser(__SFI_CreateFormulaParser())
+    constructor(tab: string | GoogleSheetTabs) {
+        this.PARSER = new Parser(__SFI_CreateFormulaParser())
+        this.INTERPRET_ACTION = new Map()
+        this.InitInterpretActions()
+
+        if (typeof tab === "string") {
+            this.TAB = new GoogleSheetTabs(tab)
+        }
+        else {
+            this.TAB = tab
+        }
     }
 
     public ParseInput(input: string) {
-        let x = this.parser.Run(input)
+        let x = this.PARSER.Run(input)
         return x
+    }
+
+    private InitInterpretActions() {
+        const Default = (state: ParserState) => { return state }
+
+        this.INTERPRET_ACTION.set('OP_ADD', (state) => {
+            const ALLOWED_TYPES = ['NUMBER', 'FLOAT', 'INT']
+            if (!ALLOWED_TYPES.includes(state.result.child_nodes[0].type)) { return undefined }
+            if (!ALLOWED_TYPES.includes(state.result.child_nodes[1].type)) { return undefined }
+
+            const LEFT = this.InterpretNode(state.result.child_nodes[0])
+            const RIGHT = this.InterpretNode(state.result.child_nodes[1])
+
+            if (LEFT === undefined || RIGHT === undefined) { return undefined }
+
+            const LEFT_NUM = parseFloat(LEFT.result.res)
+            const RIGHT_NUM = parseFloat(RIGHT.result.res)
+            LEFT.result.res = (LEFT_NUM + RIGHT_NUM).toString()
+            return LEFT
+        })
+
+        this.INTERPRET_ACTION.set('OP_SUB', (state) => {
+            const ALLOWED_TYPES = ['NUMBER', 'FLOAT', 'INT']
+            if (!ALLOWED_TYPES.includes(state.result.child_nodes[0].type)) { return undefined }
+            if (!ALLOWED_TYPES.includes(state.result.child_nodes[1].type)) { return undefined }
+
+            const LEFT = this.InterpretNode(state.result.child_nodes[0])
+            const RIGHT = this.InterpretNode(state.result.child_nodes[1])
+
+            if (LEFT === undefined || RIGHT === undefined) { return undefined }
+
+            const LEFT_NUM = parseFloat(LEFT.result.res)
+            const RIGHT_NUM = parseFloat(RIGHT.result.res)
+            LEFT.result.res = (LEFT_NUM - RIGHT_NUM).toString()
+            return LEFT
+        })
+
+        this.INTERPRET_ACTION.set('OP_MUL', (state) => {
+            const ALLOWED_TYPES = ['NUMBER', 'FLOAT', 'INT']
+            if (!ALLOWED_TYPES.includes(state.result.child_nodes[0].type)) { return undefined }
+            if (!ALLOWED_TYPES.includes(state.result.child_nodes[1].type)) { return undefined }
+
+            const LEFT = this.InterpretNode(state.result.child_nodes[0])
+            const RIGHT = this.InterpretNode(state.result.child_nodes[1])
+
+            if (LEFT === undefined || RIGHT === undefined) { return undefined }
+
+            const LEFT_NUM = parseFloat(LEFT.result.res)
+            const RIGHT_NUM = parseFloat(RIGHT.result.res)
+            LEFT.result.res = (LEFT_NUM * RIGHT_NUM).toString()
+            return LEFT
+        })
+
+        this.INTERPRET_ACTION.set('OP_DIV', (state) => {
+            const ALLOWED_TYPES = ['NUMBER', 'FLOAT', 'INT']
+            if (!ALLOWED_TYPES.includes(state.result.child_nodes[0].type)) { return undefined }
+            if (!ALLOWED_TYPES.includes(state.result.child_nodes[1].type)) { return undefined }
+
+            const LEFT = this.InterpretNode(state.result.child_nodes[0])
+            const RIGHT = this.InterpretNode(state.result.child_nodes[1])
+
+            if (LEFT === undefined || RIGHT === undefined) { return undefined }
+
+            const LEFT_NUM = parseFloat(LEFT.result.res)
+            const RIGHT_NUM = parseFloat(RIGHT.result.res)
+
+            if (RIGHT_NUM === 0) { return undefined }
+
+            LEFT.result.res = (LEFT_NUM / RIGHT_NUM).toString()
+            return LEFT
+        })
+
+        this.INTERPRET_ACTION.set('OP_POW', (state) => {
+            const ALLOWED_TYPES = ['NUMBER', 'FLOAT', 'INT']
+            if (!ALLOWED_TYPES.includes(state.result.child_nodes[0].type)) { return undefined }
+            if (!ALLOWED_TYPES.includes(state.result.child_nodes[1].type)) { return undefined }
+
+            const LEFT = this.InterpretNode(state.result.child_nodes[0])
+            const RIGHT = this.InterpretNode(state.result.child_nodes[1])
+
+            if (LEFT === undefined || RIGHT === undefined) { return undefined }
+
+            const LEFT_NUM = parseFloat(LEFT.result.res)
+            const RIGHT_NUM = parseFloat(RIGHT.result.res)
+            LEFT.result.res = Math.pow(LEFT_NUM, RIGHT_NUM).toString()
+            return LEFT
+        })
+
+        this.INTERPRET_ACTION.set('OP_PAREN', (state) => {
+            return this.InterpretNode(state.result.child_nodes[0])
+        })
+
+        this.INTERPRET_ACTION.set('FUNCTION', (state) => {
+            switch (state.result.res) {
+                case 'MULTIPLY': { return this.INTERPRET_ACTION.get('FUNC_MUL')?.call(this, state) }
+                case 'DIVIDE':   { return this.INTERPRET_ACTION.get('FUNC_DIV')?.call(this, state) }
+                case 'ADD':      { return this.INTERPRET_ACTION.get('FUNC_ADD')?.call(this, state) }
+                case 'SUBTRACT': { return this.INTERPRET_ACTION.get('FUNC_SUB')?.call(this, state) }
+                case 'POWER':    { return this.INTERPRET_ACTION.get('FUNC_POW')?.call(this, state) }
+                case 'SUM':      { return this.INTERPRET_ACTION.get('FUNC_SUM')?.call(this, state) }
+            }
+            return undefined
+        })
+
+
+
+        this.INTERPRET_ACTION.set('INT', Default)
+        this.INTERPRET_ACTION.set('FLOAT', Default)
+        this.INTERPRET_ACTION.set('NUMBER', Default)
+        this.INTERPRET_ACTION.set('STRING', Default)
+        this.INTERPRET_ACTION.set('BOOLEAN', Default)
+        this.INTERPRET_ACTION.set('DATE', Default)
+        
+        this.INTERPRET_ACTION.set('SPREADSHEET_CELL', (state) => {
+            let col = state.result.res.match(/[A-Za-z]+/g)?.[0]
+            let row = state.result.res.match(/\d+/g)?.[0]
+            if (col === undefined) { return undefined }
+            if (row === undefined) { return undefined }
+
+            let col_index = __Util_ColLetterToIndex(col)
+            let row_index = parseInt(row) - 1
+            let cell_val = this.TAB.GetRow(row_index)?.[col_index]
+
+            if (cell_val === undefined) { return undefined }
+
+            state.result.res = `${cell_val}`
+            return state
+        })
+
+
+    }
+
+    private InterpretNode(node: ParserState) {
+        return this.INTERPRET_ACTION.get(node.result.type)?.call(this, node)
     }
 }
 
 function UtilsClassMain() {
-    let y = new FormulaInterpreter().ParseInput("=5true-5")
+    let y = new FormulaInterpreter(PAYMENT_SCHEDULE_TAB_NAME).ParseInput("=5true-5")
     console.log(y.toString())
 }

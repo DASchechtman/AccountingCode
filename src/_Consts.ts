@@ -8,6 +8,7 @@ type DataArrayEntry = Array<string | number>;
 type DataArrayElement = string | number;
 type NotUndefined<T> = T extends undefined ? never : T;
 type NotType<T, U> = T extends U ? never : T;
+type InterpreterActionResult = number | string | boolean | Date | undefined
 
 
 type SpreadSheetEditEventObject = {
@@ -37,3 +38,4 @@ const HOUSE_BUDGET_DASHBOARD_TAB_NAME = "Household Budget Dashboard"
 const MULTI_WEEK_LOANS_TAB_NAME = "Multi Week Loans"
 const PERSONAL_SPEND_TRACKER_TAB_NAME = "Personal Spend Tracker"
 const BUDGET_PLANNER_TAB_NAME = "Budget Planner"
+const PAYMENT_SCHEDULE_TAB_NAME = "Settings"

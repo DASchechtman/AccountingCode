@@ -5,6 +5,17 @@ function __SFI_CreateFormulaTree(formula: Array<ParserState>) {
     __SFI_ConvertFormulaToTree(formula, ["(", ")"])
 }
 
+function GetOpType(op: string) {
+    switch (op) {
+        case '^': return 'OP_POW'
+        case '*': return 'OP_MUL'
+        case '/': return 'OP_DIV'
+        case '+': return 'OP_ADD'
+        case '-': return 'OP_SUB'
+    }
+    return 'NULL'
+}
+
 function __SFI_ConvertFormulaToTree(formula: Array<ParserState>, opers: Array<string>) {
     for (let i = 0; i < formula.length; i++) {
         const EL = formula[i]
@@ -18,6 +29,7 @@ function __SFI_ConvertFormulaToTree(formula: Array<ParserState>, opers: Array<st
             PAREN_EL.result.res = '()'
             PAREN_EL.result.child_nodes = SUB_ARR
             formula.splice(i, j - i + 1, PAREN_EL)
+            PAREN_EL.result.type = 'OP_PAREN'
         }
         else if (opers.includes(EL.result.res)) {
             const LEFT = formula[i - 1]
@@ -25,8 +37,8 @@ function __SFI_ConvertFormulaToTree(formula: Array<ParserState>, opers: Array<st
             EL.result.child_nodes.push(LEFT, RIGHT)
             formula.splice(formula.indexOf(LEFT), 1)
             formula.splice(formula.indexOf(RIGHT), 1)
-            EL.result.type = "OPERATOR"
             i = formula.indexOf(EL)
+            EL.result.type = GetOpType(EL.result.res)
         }
     }
 
