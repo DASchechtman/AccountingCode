@@ -82,9 +82,13 @@ function __SFI_CreateMathFormula() {
         }
     })
 
-    const MathFormula = new Parser(__SFI_SeqOf(__SFI_Str("="), FormulaArgs)).Map(state => {
+    const MathFormula = new Parser(__SFI_SeqOf(__SFI_Str("="), FormulaArgs, __SFI_EndOfInput)).Map(state => {
         return {
             ...state.child_nodes[1].result,
+        }
+    }).MapError(_ => {
+        return {
+            parse_error: "Invalid Math Formula",
         }
     })
 
@@ -146,7 +150,9 @@ function __SFI_CreateFuncFormula() {
         }
     })
 
-    return new Parser(__SFI_SeqOf(__SFI_Str("="), Func)).Map(state => { return {...state.child_nodes[1].result} })
+    return new Parser(__SFI_SeqOf(__SFI_Str("="), Func, __SFI_EndOfInput))
+        .Map(state => { return {...state.child_nodes[1].result} })
+        .MapError(_ => { return {parse_error: "Invalid Function Formula"} })
 }
 
 function __SFI_CreateFormulaParser() {
@@ -420,6 +426,9 @@ function __SFI_ParseFormulaMain3() {
 // this function will not be used in the project, this is just me
 // playing around with code and learning more about parser combinators
 function __SFI_ParseFormulaMain4() {
+    const WhiteSpace = __SFI_ManyZero(__SFI_Str(" "))
+    const Test = new Parser(__SFI_SeqOf(__SFI_Str("hello"), WhiteSpace, __SFI_Str("world"), WhiteSpace, __SFI_EndOfInput))
+    console.log(Test.Run("hello world and moon").toString())
 }
 
 // this function will not be used in the project, this is just me

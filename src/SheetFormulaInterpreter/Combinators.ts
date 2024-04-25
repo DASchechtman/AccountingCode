@@ -328,3 +328,22 @@ const __SFI_SepByOne = (parser: __SFI_ParserFunc | Parser, separator: __SFI_Pars
     state.type = "NODE"
     return state
 }
+
+const __SFI_ReadFullInput = (...parsers: (__SFI_ParserFunc | Parser)[]) => (state: ParserState) => {
+    if (state.is_error) { return state }
+    let next_state = state
+
+    for (let parser of parsers) {
+        next_state = __SFI_MutateParserState(parser, next_state, state)
+        if (next_state.is_error) { return next_state }
+        state.result.child_nodes.push(next_state)
+    }
+
+    if (state.target.length > 0) {
+        state.parser_error = `Expected '${state.target}' to be fully consumed but it was not.`
+        return state
+    }
+
+    state.type = "NODE"
+    return state
+}

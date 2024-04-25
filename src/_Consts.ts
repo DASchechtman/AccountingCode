@@ -10,6 +10,10 @@ type NotUndefined<T> = T extends undefined ? never : T;
 type NotType<T, U> = T extends U ? never : T;
 type InterpreterActionResult = number | string | boolean | Date | undefined
 
+type Some = {type: "Some", val: unknown}
+type None = {type: "None"}
+type Maybe = Some | None
+
 
 type SpreadSheetEditEventObject = {
     authMode: GoogleAppsScript.Script.AuthMode;

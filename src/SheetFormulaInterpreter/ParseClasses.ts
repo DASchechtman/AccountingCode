@@ -148,6 +148,22 @@ class Parser {
         })
     }
 
+    public MapError(transform: (state: ParserState) => Partial<ParserStateResults & {parse_error: string}>) {
+        return new Parser((state: ParserState) => {
+            const NEW_STATE = this.ParserFunc(state)
+            if (!NEW_STATE.is_error) { return NEW_STATE }
+            const NEW_RESULT = transform(NEW_STATE)
+
+            if (NEW_RESULT.parse_error !== undefined)   { NEW_STATE.parser_error = NEW_RESULT.parse_error }
+            if (NEW_RESULT.res !== undefined)           { NEW_STATE.result.res = NEW_RESULT.res }
+            if (NEW_RESULT.extras !== undefined)        { NEW_STATE.result.extras = NEW_RESULT.extras }
+            if (NEW_RESULT.child_nodes !== undefined)   { NEW_STATE.result.child_nodes = NEW_RESULT.child_nodes }
+            if (NEW_RESULT.type !== undefined)          { NEW_STATE.type = NEW_RESULT.type }
+
+            return NEW_STATE
+        })
+    }
+
     public Chain(next: (res: ParserStateResults) => Parser | ((state: ParserState) => ParserState)) {
         return new Parser((state: ParserState) => {
             const NEW_STATE = this.ParserFunc(state)
