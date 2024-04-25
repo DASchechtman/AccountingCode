@@ -135,13 +135,14 @@ function __SFI_CreateFuncFormula() {
 
     const Comma = __SFI_SeqOf(__SFI_Str(","), __SFI_ManyZero(__SFI_Str(" ")))
 
-    const Func = new Parser(__SFI_SeqOf(__SFI_Letters, __SFI_Str("("), __SFI_SepBy(Args, Comma), __SFI_Str(")"))).Map(state => {
+    const Func = new Parser(__SFI_SeqOf(__SFI_Letters, __SFI_Str("("), __SFI_SepBy(Args, Comma), Args, __SFI_Str(")"))).Map(state => {
         const FUNC_NAME = state.child_nodes[0].result.res
         const ARGS = new Array<ParserState>()
         for (let i = 0; i < state.child_nodes[2].result.child_nodes.length; i+=2) {
             let node = state.child_nodes[2].result.child_nodes[i]
             ARGS.push(node)
         }
+        ARGS.push(state.child_nodes[3])
 
         return {
             res: FUNC_NAME,
@@ -434,6 +435,6 @@ function __SFI_ParseFormulaMain4() {
 // this function will not be used in the project, this is just me
 // playing around with code and learning more about parser combinators
 function __SFI_ParseFormulaMain5() {
-    const NUM = __SFI_CreateMathFormula()
-    console.log(NUM.Run("=50-C43").toString())
+    const NUM = __SFI_CreateFuncFormula()
+    console.log(NUM.Run("=SUM(C35:C42)").toString())
 }

@@ -332,27 +332,13 @@ class FormulaInterpreter {
         const INTERPRET_RESULT = this.InterpretNode(PARSE_ATTEMPT)
         if (INTERPRET_RESULT.type === "None") { return undefined }
 
-        if (INTERPRET_RESULT.val instanceof Date) {
-            return __Util_CreateDateString(INTERPRET_RESULT.val)
-        }
-        else if (typeof INTERPRET_RESULT.val === "boolean") {
-            return Boolean(INTERPRET_RESULT.val)
-        }
-        else if (typeof INTERPRET_RESULT.val === "number") {
-            return Number(INTERPRET_RESULT.val)
-        }
-
-        return String(INTERPRET_RESULT.val)
+       return INTERPRET_RESULT.val
     }
 
     private InitInterpretActions() {
 
 
         this.INTERPRET_ACTION.set('OP_ADD', (state) => {
-            const ALLOWED_TYPES = ['NUMBER', 'FLOAT', 'INT']
-            if (!ALLOWED_TYPES.includes(state.result.child_nodes[0].type)) { return this.None }
-            if (!ALLOWED_TYPES.includes(state.result.child_nodes[1].type)) { return this.None }
-
             const LEFT = this.UnwrapValueOrDefault(this.InterpretNode(state.result.child_nodes[0]), 0)
             const RIGHT = this.UnwrapValueOrDefault(this.InterpretNode(state.result.child_nodes[1]), 0)
 
@@ -362,10 +348,6 @@ class FormulaInterpreter {
         })
 
         this.INTERPRET_ACTION.set('OP_SUB', (state) => {
-            const ALLOWED_TYPES = ['NUMBER', 'FLOAT', 'INT']
-            if (!ALLOWED_TYPES.includes(state.result.child_nodes[0].type)) { return this.None }
-            if (!ALLOWED_TYPES.includes(state.result.child_nodes[1].type)) { return this.None }
-
             const LEFT = this.UnwrapValueOrDefault(this.InterpretNode(state.result.child_nodes[0]), 0)
             const RIGHT = this.UnwrapValueOrDefault(this.InterpretNode(state.result.child_nodes[1]), 0)
 
@@ -374,10 +356,6 @@ class FormulaInterpreter {
         })
 
         this.INTERPRET_ACTION.set('OP_MUL', (state) => {
-            const ALLOWED_TYPES = ['NUMBER', 'FLOAT', 'INT']
-            if (!ALLOWED_TYPES.includes(state.result.child_nodes[0].type)) { return this.None }
-            if (!ALLOWED_TYPES.includes(state.result.child_nodes[1].type)) { return this.None }
-
             const LEFT = this.UnwrapValueOrDefault(this.InterpretNode(state.result.child_nodes[0]), 0)
             const RIGHT = this.UnwrapValueOrDefault(this.InterpretNode(state.result.child_nodes[1]), 0)
 
@@ -386,10 +364,6 @@ class FormulaInterpreter {
         })
 
         this.INTERPRET_ACTION.set('OP_DIV', (state) => {
-            const ALLOWED_TYPES = ['NUMBER', 'FLOAT', 'INT']
-            if (!ALLOWED_TYPES.includes(state.result.child_nodes[0].type)) { return this.None }
-            if (!ALLOWED_TYPES.includes(state.result.child_nodes[1].type)) { return this.None }
-
             const LEFT = this.UnwrapValueOrDefault(this.InterpretNode(state.result.child_nodes[0]), 1)
             const RIGHT = this.UnwrapValueOrDefault(this.InterpretNode(state.result.child_nodes[1]), 1)
 
@@ -400,10 +374,6 @@ class FormulaInterpreter {
         })
 
         this.INTERPRET_ACTION.set('OP_POW', (state) => {
-            const ALLOWED_TYPES = ['NUMBER', 'FLOAT', 'INT']
-            if (!ALLOWED_TYPES.includes(state.result.child_nodes[0].type)) { return this.None }
-            if (!ALLOWED_TYPES.includes(state.result.child_nodes[1].type)) { return this.None }
-
             const LEFT = this.UnwrapValueOrDefault(this.InterpretNode(state.result.child_nodes[0]), 0)
             const RIGHT = this.UnwrapValueOrDefault(this.InterpretNode(state.result.child_nodes[1]), 0)
 
@@ -571,7 +541,7 @@ class FormulaInterpreter {
             return this.WrapValue(val)
         })
         
-        this.INTERPRET_ACTION.set('SPREADSHEET_CELL', (state) => {
+        this.INTERPRET_ACTION.set('SPREADSHEET_CELL', state => {
             let col = state.result.res.match(/[A-Za-z]+/g)?.[0]
             let row = state.result.res.match(/\d+/g)?.[0]
 
@@ -593,7 +563,7 @@ class FormulaInterpreter {
             return this.WrapValue(cell_val)
         })
 
-        this.INTERPRET_ACTION.set('SPREADSHEET_RANGE', (state) => {
+        this.INTERPRET_ACTION.set('SPREADSHEET_RANGE', state => {
             let [start_cell, end_cell] = state.result.res.split(":")
 
             const COL = /[A-Za-z]/g
@@ -611,37 +581,58 @@ class FormulaInterpreter {
                 || end_row === undefined
             ) { return this.None }
             
-            let start_col_index = __Util_ColLetterToIndex(start_col)
-            let start_row_index = Number(start_row) - 1
-            let end_col_index = __Util_ColLetterToIndex(end_col)
-            let end_row_index = Number(end_row) - 1
+            const START_COL_INDEX = __Util_ColLetterToIndex(start_col)
+            const START_ROW_INDEX = Number(start_row) - 1
+            const END_COL_INDEX = __Util_ColLetterToIndex(end_col) + Number(start_col === end_col)
+            const END_ROW_INDEX = Number(end_row) - 1 + Number(start_row === end_row)
 
-            let range_vals = new Array<Array<unknown>>()
+            const RANGE_HEIGHT = END_ROW_INDEX - START_ROW_INDEX
+            const RANGE_WIDTH = END_COL_INDEX - START_COL_INDEX
 
-            for (let i = start_row_index; i <= end_row_index; i++) {
-                let vals = new Array<unknown>()
-                for (let j = start_col_index; j <= end_col_index; j++) {
+            const ARR_SIZE = RANGE_WIDTH * RANGE_HEIGHT
+            let range_vals = new Array<unknown>(ARR_SIZE)
+            let range_index = 0
+
+            for (let i = START_ROW_INDEX; i < END_ROW_INDEX; i++) {
+                for (let j = START_COL_INDEX; j < END_COL_INDEX; j++) {
                     const VAL = this.TAB.GetRow(i)?.[j]
-                    if (VAL === undefined) { return this.None }
 
-                    if (typeof VAL === "string") {
+                    if (VAL === undefined) { 
+                        return this.None 
+                    }
+                    else if (typeof VAL !== "string") {
+                        range_vals[range_index] = VAL
+                    }
+                    else if (typeof VAL === "string" && VAL.startsWith("=")) {
                         let parse_attempt = this.PARSER.Run(VAL)
-                        if (parse_attempt.is_error) { 
-                            range_vals.push([VAL])
-                            continue
-                        }
-                        let interp = this.UnwrapValueOrNone(this.InterpretNode(parse_attempt))
-                        if (interp.type === "None") { return this.None }
-                        vals.push(interp.val)
+                        if (parse_attempt.is_error) { return this.None }
+
+                        const NEW_VAL = this.UnwrapValueOrNone(this.InterpretNode(parse_attempt))
+                        if (NEW_VAL.type === "None") { return this.None }
+
+                        range_vals[range_index] = NEW_VAL.val
                     }
                     else {
-                        vals.push(VAL)
+                        range_vals[range_index] = VAL
                     }
+
+                    range_index++
                 }
-                range_vals.push(vals)
             }
 
             return this.WrapValue(range_vals.flatMap(v => v))
+        })
+
+        this.INTERPRET_ACTION.set('SPREADSHEET_MATH_FORMULA', state => {
+            let val = this.UnwrapValueOrNone(this.InterpretNode(state.result.child_nodes[0]))
+            if (val.type === "None") { return this.None }
+            return this.WrapValue(val.val)
+        })
+
+        this.INTERPRET_ACTION.set('SPREADSHEET_FUNCTION_FORMULA', state => {
+            let val = this.UnwrapValueOrNone(this.INTERPRET_ACTION.get('FUNCTION')?.call(this, state) || this.None)
+            if (val.type === "None") { return this.None }
+            return this.WrapValue(val.val)
         })
     }
 

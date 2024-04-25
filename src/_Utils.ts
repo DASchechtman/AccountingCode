@@ -240,7 +240,7 @@ function __Util_ComputeTotal() {
     const AMOUNT_VAL = typeof AMOUNT_INDEX[i] === 'string' ? FORMULA_INTERPRETER.ParseInput(AMOUNT_INDEX[i] as string) : AMOUNT_INDEX[i]
     const PURCHASE_LOCATION = String(PURCHASE_LOCATION_INDEX[i]);
     const DUE_DATE = String(DUE_DATE_INDEX[i])
-    const AMOUNT = typeof AMOUNT_VAL === "number" ? Number(AMOUNT_INDEX[i]) : -1;
+    const AMOUNT = typeof AMOUNT_VAL === "number" ? AMOUNT_VAL : -1;
 
     if (PURCHASE_LOCATION.includes(PURCHASE_HEADER)) {
       continue;
