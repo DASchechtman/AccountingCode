@@ -151,7 +151,9 @@ class Parser {
     public MapError(transform: (state: ParserState) => Partial<ParserStateResults & {parse_error: string}>) {
         return new Parser((state: ParserState) => {
             const NEW_STATE = this.ParserFunc(state)
+
             if (!NEW_STATE.is_error) { return NEW_STATE }
+            
             const NEW_RESULT = transform(NEW_STATE)
 
             if (NEW_RESULT.parse_error !== undefined)   { NEW_STATE.parser_error = NEW_RESULT.parse_error }

@@ -284,13 +284,14 @@ const __SFI_SepBy = (parser: __SFI_ParserFunc | Parser, separator: __SFI_ParserF
     let next_state = state
 
     while (true) {
-        next_state = __SFI_MutateParserState(parser, next_state, state)
-        if (next_state.is_error) { break }
-        state.result.child_nodes.push(next_state)
+        let val_state = __SFI_MutateParserState(parser, next_state)
+        if (val_state.is_error) { break }
 
-        next_state = __SFI_MutateParserState(separator, next_state, state)
-        if (next_state.is_error) { break }
-        state.result.child_nodes.push(next_state)
+        let sep_state = __SFI_MutateParserState(separator, val_state)
+        if (sep_state.is_error) { break }
+
+        state.result.child_nodes.push(val_state, sep_state)
+        next_state.index = sep_state.index
     }
 
     state.type = "NODE"
@@ -316,13 +317,14 @@ const __SFI_SepByOne = (parser: __SFI_ParserFunc | Parser, separator: __SFI_Pars
     state.result.child_nodes.push(next_state)
 
     while (true) {
-        next_state = __SFI_MutateParserState(parser, next_state, state)
-        if (next_state.is_error) { break }
-        state.result.child_nodes.push(next_state)
+        let val_state = __SFI_MutateParserState(parser, next_state)
+        if (val_state.is_error) { break }
 
-        next_state = __SFI_MutateParserState(separator, next_state, state)
-        if (next_state.is_error) { break }
-        state.result.child_nodes.push(next_state)
+        let sep_state = __SFI_MutateParserState(separator, val_state)
+        if (sep_state.is_error) { break }
+
+        state.result.child_nodes.push(val_state, sep_state)
+        next_state.index = sep_state.index
     }
 
     state.type = "NODE"

@@ -326,12 +326,27 @@ class FormulaInterpreter {
     }
 
     public ParseInput(input: string) {
-        let x = this.PARSER.Run(input)
-        return x
+        const PARSE_ATTEMPT = this.PARSER.Run(input)
+        if (PARSE_ATTEMPT.is_error) { return undefined }
+
+        const INTERPRET_RESULT = this.InterpretNode(PARSE_ATTEMPT)
+        if (INTERPRET_RESULT.type === "None") { return undefined }
+
+        if (INTERPRET_RESULT.val instanceof Date) {
+            return __Util_CreateDateString(INTERPRET_RESULT.val)
+        }
+        else if (typeof INTERPRET_RESULT.val === "boolean") {
+            return Boolean(INTERPRET_RESULT.val)
+        }
+        else if (typeof INTERPRET_RESULT.val === "number") {
+            return Number(INTERPRET_RESULT.val)
+        }
+
+        return String(INTERPRET_RESULT.val)
     }
 
     private InitInterpretActions() {
-        const Default = (state: ParserState) => { return state }
+
 
         this.INTERPRET_ACTION.set('OP_ADD', (state) => {
             const ALLOWED_TYPES = ['NUMBER', 'FLOAT', 'INT']
@@ -597,9 +612,9 @@ class FormulaInterpreter {
             ) { return this.None }
             
             let start_col_index = __Util_ColLetterToIndex(start_col)
-            let start_row_index = parseInt(start_row) - 1
+            let start_row_index = Number(start_row) - 1
             let end_col_index = __Util_ColLetterToIndex(end_col)
-            let end_row_index = parseInt(end_row) - 1
+            let end_row_index = Number(end_row) - 1
 
             let range_vals = new Array<Array<unknown>>()
 
@@ -626,7 +641,7 @@ class FormulaInterpreter {
                 range_vals.push(vals)
             }
 
-            return this.WrapValue(range_vals)
+            return this.WrapValue(range_vals.flatMap(v => v))
         })
     }
 
@@ -651,5 +666,5 @@ class FormulaInterpreter {
 
 function UtilsClassMain() {
     let y = new FormulaInterpreter(PAYMENT_SCHEDULE_TAB_NAME).ParseInput("=5true-5")
-    console.log(y.toString())
+    console.log(String(y))
 }

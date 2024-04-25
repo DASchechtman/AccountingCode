@@ -203,6 +203,7 @@ function __Util_CheckAllAreNot<T>(check_type: T, vals: unknown[]) {
 function __Util_ComputeTotal() {
   const TAB_NAME = "One Week Loans";
   const SHEET = new GoogleSheetTabs(TAB_NAME);
+  const FORMULA_INTERPRETER = new FormulaInterpreter(SHEET);
 
   const PURCHASE_COL_HEADER = "Purchase Location";
   const DUE_DATE_COL_HEADER = "Due Date";
@@ -236,9 +237,10 @@ function __Util_ComputeTotal() {
   let last_recorded_date = "";
 
   for (let i = 1; i < SHEET.NumberOfRows(); i++) {
+    const AMOUNT_VAL = typeof AMOUNT_INDEX[i] === 'string' ? FORMULA_INTERPRETER.ParseInput(AMOUNT_INDEX[i] as string) : AMOUNT_INDEX[i]
     const PURCHASE_LOCATION = String(PURCHASE_LOCATION_INDEX[i]);
     const DUE_DATE = String(DUE_DATE_INDEX[i])
-    const AMOUNT = typeof AMOUNT_INDEX[i] === "number" ? Number(AMOUNT_INDEX[i]) : -1;
+    const AMOUNT = typeof AMOUNT_VAL === "number" ? Number(AMOUNT_INDEX[i]) : -1;
 
     if (PURCHASE_LOCATION.includes(PURCHASE_HEADER)) {
       continue;
