@@ -569,17 +569,10 @@ class FormulaInterpreter {
             const COL = /[A-Za-z]/g
             const ROW = /\d+/g
 
-            let start_col = start_cell.match(COL)?.[0]
-            let start_row = start_cell.match(ROW)?.[0]
-            let end_col = end_cell.match(COL)?.[0]
-            let end_row = end_cell.match(ROW)?.[0]
-
-            if (
-                start_col === undefined 
-                || start_row === undefined 
-                || end_col === undefined 
-                || end_row === undefined
-            ) { return this.None }
+            let start_col = start_cell.match(COL)![0]
+            let start_row = start_cell.match(ROW)![0]
+            let end_col = end_cell.match(COL)![0]
+            let end_row = end_cell.match(ROW)![0]
             
             const START_COL_INDEX = __Util_ColLetterToIndex(start_col)
             const START_ROW_INDEX = Number(start_row) - 1
@@ -595,25 +588,22 @@ class FormulaInterpreter {
 
             for (let i = START_ROW_INDEX; i < END_ROW_INDEX; i++) {
                 for (let j = START_COL_INDEX; j < END_COL_INDEX; j++) {
-                    const VAL = this.TAB.GetRow(i)?.[j]
+                    const VAL = this.TAB.GetRow(i)
 
                     if (VAL === undefined) { 
                         return this.None 
                     }
-                    else if (typeof VAL !== "string") {
-                        range_vals[range_index] = VAL
+                    else if (typeof VAL[j] !== "string" || !(VAL[j] as string).startsWith("=")) {
+                        range_vals[range_index] = VAL[j]
                     }
-                    else if (typeof VAL === "string" && VAL.startsWith("=")) {
-                        let parse_attempt = this.PARSER.Run(VAL)
+                    else {
+                        let parse_attempt = this.PARSER.Run(VAL[j] as string)
                         if (parse_attempt.is_error) { return this.None }
 
                         const NEW_VAL = this.UnwrapValueOrNone(this.InterpretNode(parse_attempt))
                         if (NEW_VAL.type === "None") { return this.None }
 
                         range_vals[range_index] = NEW_VAL.val
-                    }
-                    else {
-                        range_vals[range_index] = VAL
                     }
 
                     range_index++
