@@ -312,6 +312,9 @@ class FormulaInterpreter {
     private readonly INTERPRET_ACTION: Map<__SFI_ParserType, (state: ParserState) => Maybe>
     private readonly None: None = { type: "None" }
 
+    private static readonly CACHE = new Map<string, unknown>()
+    private static readonly CELL_CACHE = new Map<string, unknown>()
+
     constructor(tab: string | GoogleSheetTabs) {
         this.PARSER = new Parser(__SFI_CreateFormulaParser())
         this.INTERPRET_ACTION = new Map()
@@ -325,14 +328,23 @@ class FormulaInterpreter {
         }
     }
 
-    public ParseInput(input: string) {
+    public ParseInput(input: string): unknown | undefined {
+        if (FormulaInterpreter.CACHE.has(input)) { return FormulaInterpreter.CACHE.get(input) }
+
         const PARSE_ATTEMPT = this.PARSER.Run(input)
         if (PARSE_ATTEMPT.is_error) { return undefined }
 
         const INTERPRET_RESULT = this.InterpretNode(PARSE_ATTEMPT)
         if (INTERPRET_RESULT.type === "None") { return undefined }
 
+        FormulaInterpreter.CACHE.set(input, INTERPRET_RESULT.val)
+
        return INTERPRET_RESULT.val
+    }
+
+    public static ClearCache() {
+        FormulaInterpreter.CACHE.clear()
+        FormulaInterpreter.CELL_CACHE.clear()
     }
 
     private InitInterpretActions() {
@@ -542,6 +554,7 @@ class FormulaInterpreter {
         })
         
         this.INTERPRET_ACTION.set('SPREADSHEET_CELL', state => {
+            if (FormulaInterpreter.CELL_CACHE.has(state.result.res)) { return this.WrapValue(FormulaInterpreter.CELL_CACHE.get(state.result.res)) }
             let col = state.result.res.match(/[A-Za-z]+/g)?.[0]
             let row = state.result.res.match(/\d+/g)?.[0]
 
@@ -554,16 +567,25 @@ class FormulaInterpreter {
 
             if (cell_val === undefined) { return this.None }
 
+
             if (typeof cell_val === "string") {
-                let parse_attempt = this.PARSER.Run(cell_val)
-                if (parse_attempt.is_error) { return this.WrapValue(cell_val) }
-                return this.InterpretNode(parse_attempt)
+                let parse_attempt = this.ParseInput(cell_val)
+                if (parse_attempt === undefined) {
+                    FormulaInterpreter.CELL_CACHE.set(state.result.res, cell_val)
+                    return this.WrapValue(cell_val) 
+                }
+
+                FormulaInterpreter.CELL_CACHE.set(state.result.res, parse_attempt)
+                return this.WrapValue(parse_attempt)
             }
+
+            FormulaInterpreter.CELL_CACHE.set(state.result.res, cell_val)
 
             return this.WrapValue(cell_val)
         })
 
         this.INTERPRET_ACTION.set('SPREADSHEET_RANGE', state => {
+            if (FormulaInterpreter.CELL_CACHE.has(state.result.res)) { return this.WrapValue(FormulaInterpreter.CELL_CACHE.get(state.result.res)) }
             let [start_cell, end_cell] = state.result.res.split(":")
 
             const COL = /[A-Za-z]/g
@@ -597,20 +619,20 @@ class FormulaInterpreter {
                         range_vals[range_index] = VAL[j]
                     }
                     else {
-                        let parse_attempt = this.PARSER.Run(VAL[j] as string)
-                        if (parse_attempt.is_error) { return this.None }
+                        let parse_attempt = this.ParseInput(VAL[j] as string)
+                        if (parse_attempt === undefined) { return this.None }
 
-                        const NEW_VAL = this.UnwrapValueOrNone(this.InterpretNode(parse_attempt))
-                        if (NEW_VAL.type === "None") { return this.None }
-
-                        range_vals[range_index] = NEW_VAL.val
+                        range_vals[range_index] = parse_attempt
                     }
 
                     range_index++
                 }
             }
+            let ret = range_vals.flatMap(v => v)
 
-            return this.WrapValue(range_vals.flatMap(v => v))
+            FormulaInterpreter.CELL_CACHE.set(state.result.res, ret)
+
+            return this.WrapValue(ret)
         })
 
         this.INTERPRET_ACTION.set('SPREADSHEET_MATH_FORMULA', state => {

@@ -1,6 +1,7 @@
 function onEdit(e: unknown) {
   if (!__Util_EventObjectIsEditEventObject(e)) { return }
   const TAB_NAME = e.range.getSheet().getName();
+  FormulaInterpreter.ClearCache()
 
   switch (TAB_NAME) {
     case MULTI_WEEK_LOANS_TAB_NAME: {
