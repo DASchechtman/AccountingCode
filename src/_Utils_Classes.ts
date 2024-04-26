@@ -349,6 +349,8 @@ class FormulaInterpreter {
 
     private InitInterpretActions() {
 
+        const WrapNumber = (state: ParserState) => { return this.WrapValue(Number(state.result.res)) }
+
 
         this.INTERPRET_ACTION.set('OP_ADD', (state) => {
             const LEFT = this.UnwrapValueOrDefault(this.InterpretNode(state.result.child_nodes[0]), 0)
@@ -519,24 +521,9 @@ class FormulaInterpreter {
             }, 0))
         })
 
-        this.INTERPRET_ACTION.set('INT', state => {
-            let val = parseInt(state.result.res)
-            if (isNaN(val)) { return this.None }
-            return this.WrapValue(val)
-        })
-
-        this.INTERPRET_ACTION.set('FLOAT', state => {
-            let val = parseFloat(state.result.res)
-            if (isNaN(val)) { return this.None }
-            return this.WrapValue(val)
-        })
-
-        this.INTERPRET_ACTION.set('NUMBER', state => {
-            let val = Number(state.result.res)
-            if (isNaN(val)) { return this.None }
-            return this.WrapValue(val)
-        
-        })
+        this.INTERPRET_ACTION.set('INT', WrapNumber)
+        this.INTERPRET_ACTION.set('FLOAT', WrapNumber)
+        this.INTERPRET_ACTION.set('NUMBER', WrapNumber)
 
         this.INTERPRET_ACTION.set('STRING', state => this.WrapValue(state.result.res))
 
@@ -555,33 +542,26 @@ class FormulaInterpreter {
         
         this.INTERPRET_ACTION.set('SPREADSHEET_CELL', state => {
             if (FormulaInterpreter.CELL_CACHE.has(state.result.res)) { return this.WrapValue(FormulaInterpreter.CELL_CACHE.get(state.result.res)) }
-            let col = state.result.res.match(/[A-Za-z]+/g)?.[0]
-            let row = state.result.res.match(/\d+/g)?.[0]
-
-            if (col === undefined) { return this.None }
-            if (row === undefined) { return this.None }
+            let col = state.result.res.match(/[A-Za-z]+/g)![0]
+            let row = state.result.res.match(/\d+/g)![0]
 
             let col_index = __Util_ColLetterToIndex(col)
             let row_index = parseInt(row) - 1
-            let cell_val = this.TAB.GetRow(row_index)?.[col_index]
+            let sheet_row = this.TAB.GetRow(row_index)
 
-            if (cell_val === undefined) { return this.None }
+            if (sheet_row === undefined) { return this.None }
+            let cell_val = sheet_row[col_index]
 
 
-            if (typeof cell_val === "string") {
+            if (typeof cell_val !== "string" || !cell_val.startsWith("=")) {
+                FormulaInterpreter.CELL_CACHE.set(state.result.res, cell_val)
+                return this.WrapValue(cell_val)
+            }
+            else {
                 let parse_attempt = this.ParseInput(cell_val)
-                if (parse_attempt === undefined) {
-                    FormulaInterpreter.CELL_CACHE.set(state.result.res, cell_val)
-                    return this.WrapValue(cell_val) 
-                }
-
-                FormulaInterpreter.CELL_CACHE.set(state.result.res, parse_attempt)
+                if (parse_attempt === undefined) { return this.None }
                 return this.WrapValue(parse_attempt)
             }
-
-            FormulaInterpreter.CELL_CACHE.set(state.result.res, cell_val)
-
-            return this.WrapValue(cell_val)
         })
 
         this.INTERPRET_ACTION.set('SPREADSHEET_RANGE', state => {
