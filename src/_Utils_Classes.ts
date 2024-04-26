@@ -196,6 +196,10 @@ class GoogleSheetTabs {
         return this.data.indexOf(search_row, index_from)
     }
 
+    public FilterRows(func: (row: DataArrayEntry) => boolean) {
+        return this.data.filter(func)
+    }
+
     public GetRowRange(row_index: number) {
         if (row_index < 0 || row_index >= this.data.length) { return undefined }
         const RANGE_NOTATION = `A${row_index + 1}:${__Util_IndexToColLetter(this.data[row_index].length)}${row_index + 1}`
@@ -314,6 +318,7 @@ class FormulaInterpreter {
 
     private static readonly CACHE = new Map<string, unknown>()
     private static readonly CELL_CACHE = new Map<string, unknown>()
+    private static readonly PARSE_TREE_CACHE = new Map<string, ParserState>()
 
     constructor(tab: string | GoogleSheetTabs) {
         this.PARSER = new Parser(__SFI_CreateFormulaParser())
@@ -326,12 +331,16 @@ class FormulaInterpreter {
         else {
             this.TAB = tab
         }
+
+        this.CacheFormulas()
     }
 
     public ParseInput(input: string): unknown | undefined {
+        this.CacheFormulas()
         if (FormulaInterpreter.CACHE.has(input)) { return FormulaInterpreter.CACHE.get(input) }
+        if (!FormulaInterpreter.PARSE_TREE_CACHE.has(input)) { return undefined }
 
-        const PARSE_ATTEMPT = this.PARSER.Run(input)
+        const PARSE_ATTEMPT = FormulaInterpreter.PARSE_TREE_CACHE.get(input)!
         if (PARSE_ATTEMPT.is_error) { return undefined }
 
         const INTERPRET_RESULT = this.InterpretNode(PARSE_ATTEMPT)
@@ -345,6 +354,18 @@ class FormulaInterpreter {
     public static ClearCache() {
         FormulaInterpreter.CACHE.clear()
         FormulaInterpreter.CELL_CACHE.clear()
+        FormulaInterpreter.PARSE_TREE_CACHE.clear()
+    }
+
+    private CacheFormulas() {
+        if (FormulaInterpreter.PARSE_TREE_CACHE.size > 0) { return }
+        const FORMULA_ROWS = this.TAB.FilterRows(row => row.some(cell => typeof cell === "string" && cell.startsWith("=")))
+        for(let row of FORMULA_ROWS) {
+            for (let cell of row) {
+                if (typeof cell !== "string" || !cell.startsWith("=")) { continue }
+                FormulaInterpreter.PARSE_TREE_CACHE.set(cell, this.PARSER.Run(cell))
+            }
+        }
     }
 
     private InitInterpretActions() {
