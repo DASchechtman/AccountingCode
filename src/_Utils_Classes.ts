@@ -316,9 +316,9 @@ class FormulaInterpreter {
     private readonly INTERPRET_ACTION: Map<__SFI_ParserType, (state: ParserState) => Maybe>
     private readonly None: None = { type: "None" }
 
-    private static readonly CACHE = new Map<string, unknown>()
-    private static readonly CELL_CACHE = new Map<string, unknown>()
-    private static readonly PARSE_TREE_CACHE = new Map<string, ParserState>()
+    private readonly CACHE = new Map<string, unknown>()
+    private readonly CELL_CACHE = new Map<string, unknown>()
+    private readonly PARSE_TREE_CACHE = new Map<string, ParserState>()
 
     constructor(tab: string | GoogleSheetTabs) {
         this.PARSER = new Parser(__SFI_CreateFormulaParser())
@@ -337,33 +337,27 @@ class FormulaInterpreter {
 
     public ParseInput(input: string): unknown | undefined {
         this.CacheFormulas()
-        if (FormulaInterpreter.CACHE.has(input)) { return FormulaInterpreter.CACHE.get(input) }
-        if (!FormulaInterpreter.PARSE_TREE_CACHE.has(input)) { return undefined }
+        if (this.CACHE.has(input)) { return this.CACHE.get(input) }
+        if (!this.PARSE_TREE_CACHE.has(input)) { return undefined }
 
-        const PARSE_ATTEMPT = FormulaInterpreter.PARSE_TREE_CACHE.get(input)!
+        const PARSE_ATTEMPT = this.PARSE_TREE_CACHE.get(input)!
         if (PARSE_ATTEMPT.is_error) { return undefined }
 
         const INTERPRET_RESULT = this.InterpretNode(PARSE_ATTEMPT)
         if (INTERPRET_RESULT.type === "None") { return undefined }
 
-        FormulaInterpreter.CACHE.set(input, INTERPRET_RESULT.val)
+        this.CACHE.set(input, INTERPRET_RESULT.val)
 
        return INTERPRET_RESULT.val
     }
 
-    public static ClearCache() {
-        FormulaInterpreter.CACHE.clear()
-        FormulaInterpreter.CELL_CACHE.clear()
-        FormulaInterpreter.PARSE_TREE_CACHE.clear()
-    }
-
     private CacheFormulas() {
-        if (FormulaInterpreter.PARSE_TREE_CACHE.size > 0) { return }
+        if (this.PARSE_TREE_CACHE.size > 0) { return }
         const FORMULA_ROWS = this.TAB.FilterRows(row => row.some(cell => typeof cell === "string" && cell.startsWith("=")))
         for(let row of FORMULA_ROWS) {
             for (let cell of row) {
                 if (typeof cell !== "string" || !cell.startsWith("=")) { continue }
-                FormulaInterpreter.PARSE_TREE_CACHE.set(cell, this.PARSER.Run(cell))
+                this.PARSE_TREE_CACHE.set(cell, this.PARSER.Run(cell))
             }
         }
     }
@@ -562,7 +556,7 @@ class FormulaInterpreter {
         })
         
         this.INTERPRET_ACTION.set('SPREADSHEET_CELL', state => {
-            if (FormulaInterpreter.CELL_CACHE.has(state.result.res)) { return this.WrapValue(FormulaInterpreter.CELL_CACHE.get(state.result.res)) }
+            if (this.CELL_CACHE.has(state.result.res)) { return this.WrapValue(this.CELL_CACHE.get(state.result.res)) }
             let col = state.result.res.match(/[A-Za-z]+/g)![0]
             let row = state.result.res.match(/\d+/g)![0]
 
@@ -575,7 +569,7 @@ class FormulaInterpreter {
 
 
             if (typeof cell_val !== "string" || !cell_val.startsWith("=")) {
-                FormulaInterpreter.CELL_CACHE.set(state.result.res, cell_val)
+                this.CELL_CACHE.set(state.result.res, cell_val)
                 return this.WrapValue(cell_val)
             }
             else {
@@ -586,7 +580,7 @@ class FormulaInterpreter {
         })
 
         this.INTERPRET_ACTION.set('SPREADSHEET_RANGE', state => {
-            if (FormulaInterpreter.CELL_CACHE.has(state.result.res)) { return this.WrapValue(FormulaInterpreter.CELL_CACHE.get(state.result.res)) }
+            if (this.CELL_CACHE.has(state.result.res)) { return this.WrapValue(this.CELL_CACHE.get(state.result.res)) }
             let [start_cell, end_cell] = state.result.res.split(":")
 
             const COL = /[A-Za-z]/g
@@ -631,7 +625,7 @@ class FormulaInterpreter {
             }
             let ret = range_vals.flatMap(v => v)
 
-            FormulaInterpreter.CELL_CACHE.set(state.result.res, ret)
+            this.CELL_CACHE.set(state.result.res, ret)
 
             return this.WrapValue(ret)
         })
