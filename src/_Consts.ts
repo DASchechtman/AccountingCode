@@ -6,15 +6,9 @@ type Tab = GoogleAppsScript.Spreadsheet.Sheet;
 type DataArray = Array<DataArrayEntry>;
 type DataArrayEntry = Array<string | number>;
 type DataArrayElement = string | number;
-type NotUndefined<T> = T extends undefined ? never : T;
-type NotType<T, U> = T extends U ? never : T;
-type InterpreterActionResult = number | string | boolean | Date | undefined
-
-type Some = {type: "Some", val: unknown}
+type Some = {type: "Some", val: NonNullable<unknown>}
 type None = {type: "None"}
 type Maybe = Some | None
-
-
 type SpreadSheetEditEventObject = {
     authMode: GoogleAppsScript.Script.AuthMode;
     triggerUid: string;
@@ -25,7 +19,6 @@ type SpreadSheetEditEventObject = {
     oldValue: string;
     changeType: string;
 }
-
 type SpreadSheetOpenEventObject = {
     authMode: GoogleAppsScript.Script.AuthMode;
     source: Spreadsheet;

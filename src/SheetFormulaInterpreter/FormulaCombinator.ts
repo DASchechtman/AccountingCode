@@ -45,57 +45,7 @@ function __SFI_ConvertFormulaToTree(formula: Array<ParserState>, opers: Array<st
     return formula
 }
 
-function __SFI_CreateMathFormula() {
-    const CellParser = new Parser(__SFI_SeqOf(__SFI_Letters, __SFI_Digits)).Map(state => {
-        return {
-            res: state.child_nodes.map(n => n.result.res).join(""),
-            type: "SPREADSHEET_CELL",
-            child_nodes: []
-        }
-    })
-
-    const Num = new Parser(__SFI_Choice(__SFI_Float, __SFI_Int)).Map(state => {
-        return {
-            res: state.res,
-            type: "NUMBER",
-        }
-    })
-
-    const Opers = __SFI_Choice(__SFI_Str("+"), __SFI_Str("-"), __SFI_Str("*"), __SFI_Str("/"), __SFI_Str("^"))
-
-    const Exp = __SFI_LazyEval(() => {
-        const Parens = new Parser(__SFI_SeqOf(__SFI_Str("("), FormulaArgs, __SFI_Str(")"))).Map(state => {
-            return { 
-                ...state.child_nodes[1].result,
-                type: "PARENS"
-            }
-        })
-        return __SFI_Choice(Parens, CellParser, Num)
-    })
-
-    const FormulaArgs = new Parser(__SFI_SeqOf(__SFI_SepBy(Exp, Opers), Exp)).Map(state => {
-        let formula_nodes = [...state.child_nodes[0].result.child_nodes, state.child_nodes[1]]
-        __SFI_CreateFormulaTree(formula_nodes)
-        return {
-            type: "SPREADSHEET_MATH_FORMULA",
-            child_nodes: formula_nodes,
-        }
-    })
-
-    const MathFormula = new Parser(__SFI_SeqOf(__SFI_Str("="), FormulaArgs)).Map(state => {
-        return {
-            ...state.child_nodes[1].result,
-        }
-    }).MapError(_ => {
-        return {
-            parse_error: "Invalid Math Formula",
-        }
-    })
-
-    return MathFormula
-}
-
-function __SFI_CreateFuncFormula() {
+function __SFI_CreateFuncCallParser() {
     const DateSeg = __SFI_Regex(/[0-9]{1,2}/)
 
     const DateParser = new Parser(__SFI_SeqOf(DateSeg, __SFI_Str("/"), DateSeg, __SFI_Str("/"), DateSeg, DateSeg)).Map(state => {
@@ -151,6 +101,62 @@ function __SFI_CreateFuncFormula() {
         }
     })
 
+    return Func
+}
+
+function __SFI_CreateMathFormula() {
+    const CellParser = new Parser(__SFI_SeqOf(__SFI_Letters, __SFI_Digits)).Map(state => {
+        return {
+            res: state.child_nodes.map(n => n.result.res).join(""),
+            type: "SPREADSHEET_CELL",
+            child_nodes: []
+        }
+    })
+
+    const Num = new Parser(__SFI_Choice(__SFI_Float, __SFI_Int)).Map(state => {
+        return {
+            res: state.res,
+            type: "NUMBER",
+        }
+    })
+
+    const Opers = __SFI_Choice(__SFI_Str("+"), __SFI_Str("-"), __SFI_Str("*"), __SFI_Str("/"), __SFI_Str("^"))
+    const FuncCallParser = __SFI_CreateFuncCallParser()
+
+    const Exp = __SFI_LazyEval(() => {
+        const Parens = new Parser(__SFI_SeqOf(__SFI_Str("("), FormulaArgs, __SFI_Str(")"))).Map(state => {
+            return { 
+                ...state.child_nodes[1].result,
+                type: "PARENS"
+            }
+        })
+        return __SFI_Choice(FuncCallParser, Parens, CellParser, Num)
+    })
+
+    const FormulaArgs = new Parser(__SFI_SeqOf(__SFI_SepBy(Exp, Opers), Exp)).Map(state => {
+        let formula_nodes = [...state.child_nodes[0].result.child_nodes, state.child_nodes[1]]
+        __SFI_CreateFormulaTree(formula_nodes)
+        return {
+            type: "SPREADSHEET_MATH_FORMULA",
+            child_nodes: formula_nodes,
+        }
+    })
+
+    const MathFormula = new Parser(__SFI_SeqOf(__SFI_Str("="), FormulaArgs)).Map(state => {
+        return {
+            ...state.child_nodes[1].result,
+        }
+    }).MapError(_ => {
+        return {
+            parse_error: "Invalid Math Formula",
+        }
+    })
+
+    return MathFormula
+}
+
+function __SFI_CreateFuncFormula() {
+    const Func = __SFI_CreateFuncCallParser()
     return new Parser(__SFI_SeqOf(__SFI_Str("="), Func, __SFI_EndOfInput))
         .Map(state => { return {...state.child_nodes[1].result} })
         .MapError(_ => { return {parse_error: "Invalid Function Formula"} })

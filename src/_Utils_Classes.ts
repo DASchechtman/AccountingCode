@@ -315,7 +315,6 @@ class FormulaInterpreter {
     private readonly TAB: GoogleSheetTabs
     private readonly INTERPRET_ACTION: Map<__SFI_ParserType, (state: ParserState) => Maybe>
     private readonly None: None = { type: "None" }
-
     private readonly CACHE = new Map<string, unknown>()
     private readonly CELL_CACHE = new Map<string, unknown>()
     private readonly PARSE_TREE_CACHE = new Map<string, ParserState>()
@@ -335,20 +334,21 @@ class FormulaInterpreter {
         this.CacheFormulas()
     }
 
-    public ParseInput(input: string): unknown | undefined {
-        this.CacheFormulas()
+    public ParseInput(input: string) {
         if (this.CACHE.has(input)) { return this.CACHE.get(input) }
-        if (!this.PARSE_TREE_CACHE.has(input)) { return undefined }
+        if (!this.PARSE_TREE_CACHE.has(input)) { 
+            this.PARSE_TREE_CACHE.set(input, this.PARSER.Run(input))
+        }
 
         const PARSE_ATTEMPT = this.PARSE_TREE_CACHE.get(input)!
-        if (PARSE_ATTEMPT.is_error) { return undefined }
+        if (PARSE_ATTEMPT.is_error) { return null }
 
         const INTERPRET_RESULT = this.InterpretNode(PARSE_ATTEMPT)
-        if (INTERPRET_RESULT.type === "None") { return undefined }
+        if (INTERPRET_RESULT.type === "None") { return null }
 
         this.CACHE.set(input, INTERPRET_RESULT.val)
 
-       return INTERPRET_RESULT.val
+        return INTERPRET_RESULT.val
     }
 
     private CacheFormulas() {
@@ -365,7 +365,6 @@ class FormulaInterpreter {
     private InitInterpretActions() {
 
         const WrapNumber = (state: ParserState) => { return this.WrapValue(Number(state.result.res)) }
-
 
         this.INTERPRET_ACTION.set('OP_ADD', (state) => {
             const LEFT = this.UnwrapValueOrDefault(this.InterpretNode(state.result.child_nodes[0]), 0)
@@ -556,7 +555,7 @@ class FormulaInterpreter {
         })
         
         this.INTERPRET_ACTION.set('SPREADSHEET_CELL', state => {
-            if (this.CELL_CACHE.has(state.result.res)) { return this.WrapValue(this.CELL_CACHE.get(state.result.res)) }
+            if (this.CELL_CACHE.has(state.result.res)) { return this.WrapValue(this.CELL_CACHE.get(state.result.res)!) }
             let col = state.result.res.match(/[A-Za-z]+/g)![0]
             let row = state.result.res.match(/\d+/g)![0]
 
@@ -574,59 +573,44 @@ class FormulaInterpreter {
             }
             else {
                 let parse_attempt = this.ParseInput(cell_val)
-                if (parse_attempt === undefined) { return this.None }
+                if (parse_attempt == null) { return this.None }
                 return this.WrapValue(parse_attempt)
             }
         })
 
         this.INTERPRET_ACTION.set('SPREADSHEET_RANGE', state => {
-            if (this.CELL_CACHE.has(state.result.res)) { return this.WrapValue(this.CELL_CACHE.get(state.result.res)) }
-            let [start_cell, end_cell] = state.result.res.split(":")
+            if (this.CELL_CACHE.has(state.result.res)) { return this.WrapValue(this.CELL_CACHE.get(state.result.res)!) }
 
+            const [START_CELL, END_CELL] = state.result.res.split(":")
             const COL = /[A-Za-z]/g
             const ROW = /\d+/g
+            const [START_COL, START_ROW, END_COL, END_ROW] = [START_CELL.match(COL)![0], START_CELL.match(ROW)![0], END_CELL.match(COL)![0], END_CELL.match(ROW)![0]]
+            const START_COL_INDEX = __Util_ColLetterToIndex(START_COL)
+            const START_ROW_INDEX = Number(START_ROW) - 1
+            const END_COL_INDEX = __Util_ColLetterToIndex(END_COL)
+            const END_ROW_INDEX = Number(END_ROW) - 1
+            const RANGE_VALS = new Array<unknown>()
+        
+            for (let i = START_ROW_INDEX; i <= END_ROW_INDEX; i++) {
+                for (let j = START_COL_INDEX; j <= END_COL_INDEX; j++) {
+                    const VAL_ROW = this.TAB.GetRow(i)
+                    if (VAL_ROW === undefined || j >= VAL_ROW.length) { return this.None }
 
-            let start_col = start_cell.match(COL)![0]
-            let start_row = start_cell.match(ROW)![0]
-            let end_col = end_cell.match(COL)![0]
-            let end_row = end_cell.match(ROW)![0]
-            
-            const START_COL_INDEX = __Util_ColLetterToIndex(start_col)
-            const START_ROW_INDEX = Number(start_row) - 1
-            const END_COL_INDEX = __Util_ColLetterToIndex(end_col) + Number(start_col === end_col)
-            const END_ROW_INDEX = Number(end_row) - 1 + Number(start_row === end_row)
+                    const VAL = VAL_ROW[j]
 
-            const RANGE_HEIGHT = END_ROW_INDEX - START_ROW_INDEX
-            const RANGE_WIDTH = END_COL_INDEX - START_COL_INDEX
-
-            const ARR_SIZE = RANGE_WIDTH * RANGE_HEIGHT
-            let range_vals = new Array<unknown>(ARR_SIZE)
-            let range_index = 0
-
-            for (let i = START_ROW_INDEX; i < END_ROW_INDEX; i++) {
-                for (let j = START_COL_INDEX; j < END_COL_INDEX; j++) {
-                    const VAL = this.TAB.GetRow(i)
-
-                    if (VAL === undefined) { 
-                        return this.None 
-                    }
-                    else if (typeof VAL[j] !== "string" || !(VAL[j] as string).startsWith("=")) {
-                        range_vals[range_index] = VAL[j]
+                    if (typeof VAL !== "string" || !VAL.startsWith("=")) {
+                        RANGE_VALS.push(VAL)
                     }
                     else {
-                        let parse_attempt = this.ParseInput(VAL[j] as string)
-                        if (parse_attempt === undefined) { return this.None }
-
-                        range_vals[range_index] = parse_attempt
+                        let parse_attempt = this.ParseInput(VAL)
+                        if (parse_attempt == null) { return this.None }
+                        RANGE_VALS.push(parse_attempt)
                     }
-
-                    range_index++
                 }
             }
-            let ret = range_vals.flatMap(v => v)
 
+            let ret = RANGE_VALS.flatMap(v => v)
             this.CELL_CACHE.set(state.result.res, ret)
-
             return this.WrapValue(ret)
         })
 
@@ -644,10 +628,11 @@ class FormulaInterpreter {
     }
 
     private InterpretNode(node: ParserState) {
-        return this.INTERPRET_ACTION.get(node.result.type)?.call(this, node) || this.None
+        if (!this.INTERPRET_ACTION.has(node.result.type)) { return this.None }
+        return this.INTERPRET_ACTION.get(node.result.type)!.call(this, node)
     }
 
-    private WrapValue(value: any): Some {
+    private WrapValue(value: NonNullable<unknown>): Some {
         return { type: "Some", val: value }
     }
 
