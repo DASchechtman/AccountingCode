@@ -366,6 +366,115 @@ class FormulaInterpreter {
 
         const WrapNumber = (state: ParserState) => { return this.WrapValue(Number(state.result.res)) }
 
+        const Multiply = (state: ParserState): Maybe => {
+            let vals = new Array<Maybe>()
+            for (let child of state.result.child_nodes) {
+                let val = this.InterpretNode(child)
+                if (val.type === "None") { return this.None }
+                vals.push(val)
+            }
+
+            if (vals.length !== 2) { return this.None }
+            const LEFT = this.UnwrapValueOrDefault(vals[0], 0)
+            const RIGHT = this.UnwrapValueOrDefault(vals[1], 0)
+
+            if (typeof LEFT !== "number" || typeof RIGHT !== "number") { return this.None }
+
+            return this.WrapValue(LEFT * RIGHT)
+        }
+
+        const Divide = (state: ParserState): Maybe => {
+            let vals = new Array<Maybe>()
+            for (let child of state.result.child_nodes) {
+                let val = this.InterpretNode(child)
+                if (val.type === "None") { return this.None }
+                vals.push(val)
+            }
+
+            if (vals.length !== 2) { return this.None }
+            const LEFT = this.UnwrapValueOrDefault(vals[0], 1)
+            const RIGHT = this.UnwrapValueOrDefault(vals[1], 1)
+
+            if (typeof LEFT !== "number" || typeof RIGHT !== "number") { return this.None }
+            if (RIGHT === 0) { return this.None }
+
+            return this.WrapValue(LEFT / RIGHT)
+        }
+
+        const Add = (state: ParserState): Maybe => {
+            let vals = new Array<Maybe>()
+            for (let child of state.result.child_nodes) {
+                let val = this.InterpretNode(child)
+                if (val.type === "None") { return this.None }
+                vals.push(val)
+            }
+
+            if (vals.length !== 2) { return this.None }
+            const LEFT = this.UnwrapValueOrDefault(vals[0], 0)
+            const RIGHT = this.UnwrapValueOrDefault(vals[1], 0)
+
+            if (typeof LEFT !== "number" || typeof RIGHT !== "number") { return this.None }
+
+            return this.WrapValue(LEFT + RIGHT)
+        }
+
+        const Subtract = (state: ParserState): Maybe => {
+            let vals = new Array<Maybe>()
+            for (let child of state.result.child_nodes) {
+                let val = this.InterpretNode(child)
+                if (val.type === "None") { return this.None }
+                vals.push(val)
+            }
+
+            if (vals.length !== 2) { return this.None }
+            const LEFT = this.UnwrapValueOrDefault(vals[0], 0)
+            const RIGHT = this.UnwrapValueOrDefault(vals[1], 0)
+
+            if (typeof LEFT !== "number" || typeof RIGHT !== "number") { return this.None }
+
+            return this.WrapValue(LEFT - RIGHT)
+        }
+
+        const Pow = (state: ParserState): Maybe => {
+            let vals = new Array<Maybe>()
+            for (let child of state.result.child_nodes) {
+                let val = this.InterpretNode(child)
+                if (val.type === "None") { return this.None }
+                vals.push(val)
+            }
+
+            if (vals.length !== 2) { return this.None }
+            const LEFT = this.UnwrapValueOrDefault(vals[0], 0)
+            const RIGHT = this.UnwrapValueOrDefault(vals[1], 0)
+
+            if (typeof LEFT !== "number" || typeof RIGHT !== "number") { return this.None }
+
+            return this.WrapValue(Math.pow(LEFT, RIGHT))
+        }
+
+        const Sum = (state: ParserState): Maybe => {
+            let vals = new Array<Maybe>()
+            for (let child of state.result.child_nodes) {
+                let val = this.InterpretNode(child)
+                if (val.type === "None") { return this.None }
+                if (val.val instanceof Array) {
+                    vals.push(...val.val.map(v => this.WrapValue(v)))
+                }
+                else {
+                    vals.push(val)
+                }
+            }
+
+            let sum = 0
+            for (let val of vals) {
+                let num = Number(this.UnwrapValueOrDefault(val, 0))
+                if (isNaN(num)) { continue }
+                sum += num
+            }
+
+            return this.WrapValue(sum)
+        }
+
         this.INTERPRET_ACTION.set('OP_ADD', (state) => {
             const LEFT = this.UnwrapValueOrDefault(this.InterpretNode(state.result.child_nodes[0]), 0)
             const RIGHT = this.UnwrapValueOrDefault(this.InterpretNode(state.result.child_nodes[1]), 0)
@@ -414,125 +523,15 @@ class FormulaInterpreter {
         })
 
         this.INTERPRET_ACTION.set('FUNCTION', (state) => {
-            const RunFunction = (func: __SFI_ParserType) => {
-                return this.INTERPRET_ACTION.get(func)?.call(this, state) || this.None
-            }
-
             switch (state.result.res) {
-                case 'MULTIPLY': { return RunFunction('FUNC_MUL') }
-                case 'DIVIDE':   { return RunFunction('FUNC_DIV') }
-                case 'ADD':      { return RunFunction('FUNC_ADD') }
-                case 'SUBTRACT': { return RunFunction('FUNC_SUB') }
-                case 'POWER':    { return RunFunction('FUNC_POW') }
-                case 'SUM':      { return RunFunction('FUNC_SUM') }
+                case 'MULTIPLY': { return Multiply(state) }
+                case 'DIVIDE':   { return Divide(state) }
+                case 'ADD':      { return Add(state) }
+                case 'SUBTRACT': { return Subtract(state) }
+                case 'POWER':    { return Pow(state) }
+                case 'SUM':      { return Sum(state) }
             }
             return this.None
-        })
-
-        this.INTERPRET_ACTION.set('FUNC_MUL', (state) => {
-            let vals = new Array<Maybe>()
-            for (let child of state.result.child_nodes) {
-                let val = this.InterpretNode(child)
-                if (val.type === "None") { return this.None }
-                vals.push(val)
-            }
-
-            if (vals.length !== 2) { return this.None }
-            const LEFT = this.UnwrapValueOrDefault(vals[0], 0)
-            const RIGHT = this.UnwrapValueOrDefault(vals[1], 0)
-
-            if (typeof LEFT !== "number" || typeof RIGHT !== "number") { return this.None }
-
-            return this.WrapValue(LEFT * RIGHT)
-        })
-
-        this.INTERPRET_ACTION.set('FUNC_DIV', (state) => {
-            let vals = new Array<Maybe>()
-            for (let child of state.result.child_nodes) {
-                let val = this.InterpretNode(child)
-                if (val.type === "None") { return this.None }
-                vals.push(val)
-            }
-
-            if (vals.length !== 2) { return this.None }
-            const LEFT = this.UnwrapValueOrDefault(vals[0], 1)
-            const RIGHT = this.UnwrapValueOrDefault(vals[1], 1)
-
-            if (typeof LEFT !== "number" || typeof RIGHT !== "number") { return this.None }
-            if (RIGHT === 0) { return this.None }
-
-            return this.WrapValue(LEFT / RIGHT)
-        })
-
-        this.INTERPRET_ACTION.set('FUNC_ADD', (state) => {
-            let vals = new Array<Maybe>()
-            for (let child of state.result.child_nodes) {
-                let val = this.InterpretNode(child)
-                if (val.type === "None") { return this.None }
-                vals.push(val)
-            }
-
-            if (vals.length !== 2) { return this.None }
-            const LEFT = this.UnwrapValueOrDefault(vals[0], 0)
-            const RIGHT = this.UnwrapValueOrDefault(vals[1], 0)
-
-            if (typeof LEFT !== "number" || typeof RIGHT !== "number") { return this.None }
-
-            return this.WrapValue(LEFT + RIGHT)
-        })
-
-        this.INTERPRET_ACTION.set('FUNC_SUB', (state) => {
-            let vals = new Array<Maybe>()
-            for (let child of state.result.child_nodes) {
-                let val = this.InterpretNode(child)
-                if (val.type === "None") { return this.None }
-                vals.push(val)
-            }
-
-            if (vals.length !== 2) { return this.None }
-            const LEFT = this.UnwrapValueOrDefault(vals[0], 0)
-            const RIGHT = this.UnwrapValueOrDefault(vals[1], 0)
-
-            if (typeof LEFT !== "number" || typeof RIGHT !== "number") { return this.None }
-
-            return this.WrapValue(LEFT - RIGHT)
-        })
-
-        this.INTERPRET_ACTION.set('FUNC_POW', (state) => {
-            let vals = new Array<Maybe>()
-            for (let child of state.result.child_nodes) {
-                let val = this.InterpretNode(child)
-                if (val.type === "None") { return this.None }
-                vals.push(val)
-            }
-
-            if (vals.length !== 2) { return this.None }
-            const LEFT = this.UnwrapValueOrDefault(vals[0], 0)
-            const RIGHT = this.UnwrapValueOrDefault(vals[1], 0)
-
-            if (typeof LEFT !== "number" || typeof RIGHT !== "number") { return this.None }
-
-            return this.WrapValue(Math.pow(LEFT, RIGHT))
-        })
-
-        this.INTERPRET_ACTION.set('FUNC_SUM', (state) => {
-            let vals = new Array<Maybe>()
-            for (let child of state.result.child_nodes) {
-                let val = this.InterpretNode(child)
-                if (val.type === "None") { return this.None }
-                if (val.val instanceof Array) {
-                    vals.push(...val.val.map(v => this.WrapValue(v)))
-                }
-                else {
-                    vals.push(val)
-                }
-            }
-
-            return this.WrapValue(vals.reduce((acc, val) => {
-                let unwrapped = this.UnwrapValueOrDefault(val, 0)
-                if (typeof unwrapped !== "number") { return acc }
-                return acc + unwrapped
-            }, 0))
         })
 
         this.INTERPRET_ACTION.set('INT', WrapNumber)
