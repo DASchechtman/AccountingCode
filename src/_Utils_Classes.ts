@@ -573,6 +573,7 @@ class FormulaInterpreter {
             else {
                 let parse_attempt = this.ParseInput(cell_val)
                 if (parse_attempt == null) { return this.None }
+                this.CELL_CACHE.set(state.result.res, parse_attempt)
                 return this.WrapValue(parse_attempt)
             }
         })
@@ -603,6 +604,7 @@ class FormulaInterpreter {
                     else {
                         let parse_attempt = this.ParseInput(VAL)
                         if (parse_attempt == null) { return this.None }
+                        this.CELL_CACHE.set(state.result.res, parse_attempt)
                         RANGE_VALS.push(parse_attempt)
                     }
                 }
