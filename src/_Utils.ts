@@ -336,8 +336,9 @@ function __Util_GroupAndHighlightOneWeekLoans(should_shade_red: boolean = true) 
 }
 
 function __Util_CreateHeadersForOneWeekLoans(date_header: string, tab_name: string) {
-  const TAB = new GoogleSheetTabs(tab_name)
+  const TAB = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME)
   const DATE_HEADER_INDEX = TAB.GetHeaderIndex(date_header)
+  const PURCHASE_LOCATION_INDEX = TAB.GetHeaderIndex("Purchase Location")
   const GROUPS = new Map<string, DataArray>()
   const HEADER_KEY = "HEADERS"
 
@@ -358,10 +359,27 @@ function __Util_CreateHeadersForOneWeekLoans(date_header: string, tab_name: stri
 
   TAB.EraseTab()
 
+  const CreateDateHeader = (len: number, date: string) => {
+    const HEADER = new Array<string>()
+    for (let i = 0; i < len; i++) {
+      if (i === PURCHASE_LOCATION_INDEX) {
+        HEADER.push(`${PURCHASE_HEADER} ${date}`)
+      }
+      else {
+        HEADER.push("")
+      }
+    }
+    return HEADER
+  }
+
   for (let [date, group] of GROUPS) {
     if (date === HEADER_KEY) { TAB.AppendRow(group[0]); continue }
-    TAB.AppendRow(["", `${PURCHASE_HEADER} ${date}`])
+    let start_of_grouping = true
     for (let row of group) {
+      if (start_of_grouping) {
+        TAB.AppendRow(CreateDateHeader(row.length, date))
+        start_of_grouping = false
+      }
       TAB.AppendRow(row)
     }
   }

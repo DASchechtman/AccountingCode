@@ -33,6 +33,7 @@ function onOpen(_: SpreadSheetOpenEventObject) {
     .addSubMenu(LOAN_FUNCS)
     .addItem("Create New Household Budget Tab", "CreateNewHouseholdBudgetTab")
     .addItem("Group One Week Loans", "GroupOneWeekLoans")
+    .addItem("Break Down Repayments", "BreakDownRepayment")
     .addToUi();
   __Util_CacheSheets()
 }

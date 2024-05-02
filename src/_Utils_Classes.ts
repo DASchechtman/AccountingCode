@@ -65,6 +65,7 @@ class GoogleSheetTabs {
     private tab: Tab
     private headers: Map<string, number>
     private data: DataArray
+    private readonly COPY_MAP: Map<unknown[], number>
 
     constructor(tab: Tab | string) {
         if (typeof tab === "string") {
@@ -76,6 +77,7 @@ class GoogleSheetTabs {
         this.tab = tab
         this.data = []
         this.InitSheetData()
+        this.COPY_MAP = new Map()
 
         const HEADERS = this.data[0]
 
@@ -130,12 +132,19 @@ class GoogleSheetTabs {
 
     public GetRow(row_index: number) {
         if (row_index < 0 || row_index >= this.data.length) { return undefined }
-        return this.CreateRowCopy(this.data[row_index])
+        return this.CreateRecordedRowCopy(this.data[row_index], row_index)
     }
 
     public WriteRow(row_index: number, row: DataArrayEntry) {
         if (row_index < 0 || row_index >= this.data.length) { return }
         this.data[row_index] = this.CreateRowCopy(row)
+    }
+
+    public OverWriteRow(row: DataArrayEntry) {
+        if (!this.COPY_MAP.has(row)) { return false }
+        const INDEX = this.COPY_MAP.get(row)!
+        this.data[INDEX] = this.CreateRowCopy(row)
+        return true
     }
 
     public WriteRowAt(row_index: number, start: number, row: DataArrayEntry) {
@@ -149,7 +158,7 @@ class GoogleSheetTabs {
     }
 
     public AppendRow(row: DataArrayEntry, should_fill: boolean = false) {
-        row = this.CreateRowCopy(row)
+        row = this.CreateRecordedRowCopy(row, this.data.length)
         this.data.push(row)
         if (should_fill) {
             const LONGEST_ROW = this.FindLongestRowLength()
@@ -165,8 +174,12 @@ class GoogleSheetTabs {
         should_fill?: boolean
     } = {}) {
         if (row_index < 0) { row_index = 0 }
-        row = this.CreateRowCopy(row)
-        if (AlterRow) { row = AlterRow(row) }
+        if (!AlterRow) {
+            row = this.CreateRecordedRowCopy(row, row_index)
+        }
+        else {
+            row = this.CreateRecordedRowCopy(AlterRow(row), row_index)
+        }
 
         const LONGEST_ROW = this.FindLongestRowLength()
         while (row.length < LONGEST_ROW && should_fill) {
@@ -182,11 +195,13 @@ class GoogleSheetTabs {
     public AppendToRow(row_index: number, ...row: DataArrayElement[]) {
         if (row_index < 0 || row_index >= this.data.length) { return undefined }
         this.data[row_index].push(...row.map(__Util_ConvertToStrOrNum))
-        return row
+        return this.CreateRecordedRowCopy(this.data[row_index], row_index)
     }
 
     public FindRow(func: (row: DataArrayEntry) => boolean) {
-        return this.data.find(func)
+        let row_index = this.data.findIndex(func)
+        if (row_index === -1) { return undefined }
+        return this.CreateRecordedRowCopy(this.data[row_index], row_index)
     }
 
     public IndexOfRow(row?: DataArrayEntry | ((row: DataArrayEntry) => boolean), index_from?: number) {
@@ -197,7 +212,18 @@ class GoogleSheetTabs {
     }
 
     public FilterRows(func: (row: DataArrayEntry) => boolean) {
-        return this.data.filter(func)
+        let x = this.data.map((row, i) => {
+            if (func(row)) {
+                return this.CreateRecordedRowCopy(row, i)
+            }
+            return null
+        })
+        const FILTERED: DataArray = []
+        for (let el of x) {
+            if (el == null) { continue }
+            FILTERED.push(el)
+        }
+        return FILTERED
     }
 
     public GetRowRange(row_index: number) {
@@ -294,6 +320,12 @@ class GoogleSheetTabs {
 
     private CreateRowCopy(row: any[]) {
         return [...row].map(__Util_ConvertToStrOrNum)
+    }
+
+    private CreateRecordedRowCopy(row: any[], index: number) {
+        const copy = this.CreateRowCopy(row)
+        this.COPY_MAP.set(copy, index)
+        return copy
     }
 
     private InitSheetData() {
