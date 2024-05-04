@@ -291,51 +291,47 @@ function __Util_ComputeTotal() {
 
 function __Util_GroupAndHighlightOneWeekLoans(should_shade_red: boolean = true) {
   const SHEET = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME)
-  const GROUPS = new Map<number, number>()
   const CUR_DATE = new Date()
   const PURCHASE_LOCATION_INDEX = SHEET.GetHeaderIndex("Purchase Location")
   const LIGHT_RED_SHADES = ["#FF7F7F", "#FF9F9F"]
-  let cur_group = -1
-
-  for (let i = 0; i < SHEET.NumberOfRows(); i++) {
-    let row = SHEET.GetRow(i)!
-    if (row.some(value => String(value).includes(PURCHASE_HEADER))) {
-      GROUPS.set(i, 0)
-      cur_group = i
-    }
-    else if (cur_group === -1) {
-      continue
-    }
-    else {
-      GROUPS.set(cur_group, GROUPS.get(cur_group)! + 1)
-    }
-  }
-
   let color_index = 0
-  for (let [start_of_group, group_length] of GROUPS) {
-    const ROW = SHEET.GetRow(start_of_group)!
-    const DUE_DATE = new Date(String(ROW[PURCHASE_LOCATION_INDEX]).split(" ")[2])
-    const TAB = SHEET.GetTab()
-    const SHEET_PURCHASE_HEADER_ROW = start_of_group + 1
-    const RANGE_STR = `B${SHEET_PURCHASE_HEADER_ROW + 1}:B${SHEET_PURCHASE_HEADER_ROW + group_length}`
-    const RANGE = TAB.getRange(RANGE_STR)
+  let date = ""
+  let last_date_header = -1
 
-    try {
-      const GROUP = TAB.getRowGroup(SHEET_PURCHASE_HEADER_ROW + 1, 1)
-      GROUP?.remove()
-      RANGE.shiftRowGroupDepth(1)
+  SHEET.ForEachRow((row, i, range) => {
+    if (i === 0) { return 'continue' }
+
+    if (last_date_header === -1 && String(row[PURCHASE_LOCATION_INDEX]).startsWith(PURCHASE_HEADER)) {
+      last_date_header = i
+      date = String(row[PURCHASE_LOCATION_INDEX]).split(" ")[2]
     }
-    catch (e) {
-      RANGE.shiftRowGroupDepth(1)
+    else if (String(row[PURCHASE_LOCATION_INDEX]).startsWith(PURCHASE_HEADER)) {
+      const TAB = SHEET.GetTab()
+      const DATE = new Date(String(row[PURCHASE_LOCATION_INDEX]).split(" ")[2])
+      const RANGE_STR = `A${last_date_header + 2}:A${i}`
+      const RANGE = TAB.getRange(RANGE_STR)
+
+      try {
+        const GROUP = TAB.getRowGroup(last_date_header + 2, 1)
+        GROUP?.remove()
+        RANGE.shiftRowGroupDepth(1)
+      } catch {
+        RANGE.shiftRowGroupDepth(1)
+      }
+
+      if (__Util_CompareDates(CUR_DATE, date)) {
+        RANGE.collapseGroups()
+      }
+
+      date = __Util_CreateDateString(DATE)
+      last_date_header = i
+      color_index++
     }
 
-    if (__Util_CompareDates(CUR_DATE, DUE_DATE) && should_shade_red) {
-      const COLOR_RANGE_STR = `${start_of_group + 1}:${start_of_group + group_length + 1}`
-      const COLOR_RANGE = TAB.getRange(COLOR_RANGE_STR)
-      COLOR_RANGE.setBackground(LIGHT_RED_SHADES[color_index++ % 2])
-      RANGE.collapseGroups()
+    if (__Util_CompareDates(CUR_DATE, date)) {
+      range.setBackground(LIGHT_RED_SHADES[color_index % LIGHT_RED_SHADES.length])
     }
-  }
+  })
 }
 
 function __Util_CreateHeadersForOneWeekLoans(date_header: string, tab_name: string) {

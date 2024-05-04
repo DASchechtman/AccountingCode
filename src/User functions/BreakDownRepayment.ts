@@ -55,7 +55,7 @@ class __BDR_BreakDownExpenses {
         let hhloc_sum = 0
 
         this.ONE_WEEK_LOAN_TAB.ForEachRow((row, i) => {
-            if (i === 0) { return }
+            if (i === 0) { return 'continue' }
 
             const ROW = row
             const PURCHASE_LOC = String(ROW[this.PURCHASE_LOC_COL])
@@ -68,7 +68,7 @@ class __BDR_BreakDownExpenses {
 
             let purchase_amt = Number(ROW[this.PAY_AMT_COL])
 
-            if (typeof ROW[this.PAY_AMT_COL] === 'string') {
+            if (isNaN(purchase_amt)) {
                 const PARSE_RESULTS = this.ONE_WEEK_INTERPRETER.ParseInput(ROW[this.PAY_AMT_COL] as string)
                 if (PARSE_RESULTS == null || typeof PARSE_RESULTS !== 'number') {
                     purchase_amt = 0
@@ -80,12 +80,15 @@ class __BDR_BreakDownExpenses {
 
             if (date === "" && PURCHASE_LOC.startsWith(PURCHASE_HEADER)) {
                 date = PURCHASE_LOC.split(" ")[2]
+                return 'continue'
             }
             else if (PURCHASE_LOC.startsWith(PURCHASE_HEADER)) {
                 this.Record(date, hhloc_sum, card_sum, total)
                 date = PURCHASE_LOC.split(" ")[2]
                 card_sum = 0
                 hhloc_sum = 0
+                total = 0
+                return 'continue'
             }
 
             if (REPAY_LOC === "Card") {
@@ -99,7 +102,10 @@ class __BDR_BreakDownExpenses {
                 hhloc_sum += purchase_amt
             }
 
-            return ROW
+            return ROW.map(cell => {
+                if (typeof cell === 'string') { return cell.trim() }
+                return cell
+            })
         })
 
         this.Record(date, card_sum, hhloc_sum, total)
