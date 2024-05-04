@@ -254,6 +254,14 @@ class GoogleSheetTabs {
         return this.tab.getRange(RANGE_NOTATION)
     }
 
+    public ForEachRow(func: (row: DataArrayEntry, i: number) => DataArrayEntry | void) {
+        for (let i = 0; i < this.data.length; i++) {
+            let row = this.CreateRowCopy(this.data[i])
+            let new_row = func(row, i)
+            this.WriteRow(i, new_row != null ? new_row : row)
+        }
+    }
+
     public NumberOfRows() {
         return this.data.length
     }

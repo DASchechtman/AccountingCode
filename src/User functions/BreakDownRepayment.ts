@@ -16,7 +16,7 @@ class __BDR_BreakDownExpenses {
     private readonly BREAK_DOWN_TOTAL = this.ONE_WEEK_BREAKDOWN_TAB.GetHeaderIndex("Total")
     private readonly BREAK_DOWN_CHANGE_ADD_TO_CARD = this.ONE_WEEK_BREAKDOWN_TAB.GetHeaderIndex("Change added to Card?")
 
-    private  Record(date: string, hhloc_sum: number, card_sum: number, total: number) {
+    private Record(date: string, hhloc_sum: number, card_sum: number, total: number) {
         const UPDATE_ROW = this.ONE_WEEK_BREAKDOWN_TAB.FindRow(row => row[this.BREAK_DOWN_DUE_DATE] === date)
         if (UPDATE_ROW === undefined) {
             const ROW: DataArrayEntry = []
@@ -48,18 +48,19 @@ class __BDR_BreakDownExpenses {
         }
     }
 
-    public  BreakDownRepayment() {
+    public BreakDownRepayment() {
         let date = ""
         let total = 0
         let card_sum = 0
         let hhloc_sum = 0
 
-        for (let i = 1; i < this.ONE_WEEK_LOAN_TAB.NumberOfRows(); i++) {
-            const ROW = this.ONE_WEEK_LOAN_TAB.GetRow(i)!
+        this.ONE_WEEK_LOAN_TAB.ForEachRow((row, i) => {
+            if (i === 0) { return }
+
+            const ROW = row
             const PURCHASE_LOC = String(ROW[this.PURCHASE_LOC_COL])
             const REPAY_LOC = String(ROW[this.PAY_WHERE_COL])
             const TOTAL = Number(ROW[this.TOTAL_COL])
-
 
             if (TOTAL !== 0) {
                 total = TOTAL
@@ -98,8 +99,8 @@ class __BDR_BreakDownExpenses {
                 hhloc_sum += purchase_amt
             }
 
-            this.ONE_WEEK_LOAN_TAB.WriteRow(i, ROW)
-        }
+            return ROW
+        })
 
         this.Record(date, card_sum, hhloc_sum, total)
 
