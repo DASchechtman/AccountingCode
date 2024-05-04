@@ -1,93 +1,115 @@
-function __BDR_Record(bdr_tab: GoogleSheetTabs, bdr_due_date_index: number, date: string, bdr_offset: number, bdr_hhloc: number, bdr_card: number, bdr_total: number, card_sum: number, hhloc_sum: number, total: number) {
-    const UPDATE_ROW = bdr_tab.FindRow(row => row[bdr_due_date_index] === date)
-    if (UPDATE_ROW === undefined) {
-        const ROW: DataArrayEntry = []
-        ROW[bdr_due_date_index] = date
-        ROW[bdr_hhloc] = hhloc_sum
-        ROW[bdr_card] = card_sum
-        ROW[bdr_total] = total
-        bdr_tab.AppendRow(ROW.filter(x => x != null))
+class __BDR_BreakDownExpenses {
+    private readonly ONE_WEEK_LOAN_TAB = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME)
+    private readonly ONE_WEEK_BREAKDOWN_TAB = new GoogleSheetTabs(WEEKLY_PAYMENT_BREAK_DOWN_TAB_NAME)
+    private readonly ONE_WEEK_INTERPRETER = new FormulaInterpreter(this.ONE_WEEK_LOAN_TAB)
+    private readonly ONE_WEEK_BREAKDOWN_INTERPRETER = new FormulaInterpreter(this.ONE_WEEK_BREAKDOWN_TAB)
+
+    private readonly PAY_WHERE_COL = this.ONE_WEEK_LOAN_TAB.GetHeaderIndex("Pay Where?")
+    private readonly PAY_AMT_COL = this.ONE_WEEK_LOAN_TAB.GetHeaderIndex("Amount")
+    private readonly PURCHASE_LOC_COL = this.ONE_WEEK_LOAN_TAB.GetHeaderIndex("Purchase Location")
+    private readonly TOTAL_COL = this.ONE_WEEK_LOAN_TAB.GetHeaderIndex("Total")
+
+    private readonly BREAK_DOWN_DUE_DATE = this.ONE_WEEK_BREAKDOWN_TAB.GetHeaderIndex("Payment Date")
+    private readonly BREAK_DOWN_HHLOC = this.ONE_WEEK_BREAKDOWN_TAB.GetHeaderIndex("Amount for HHLOC")
+    private readonly BREAK_DOWN_CARD = this.ONE_WEEK_BREAKDOWN_TAB.GetHeaderIndex("Amount for Card")
+    private readonly BREAK_DOWN_OFFSET = this.ONE_WEEK_BREAKDOWN_TAB.GetHeaderIndex("Offset")
+    private readonly BREAK_DOWN_TOTAL = this.ONE_WEEK_BREAKDOWN_TAB.GetHeaderIndex("Total")
+    private readonly BREAK_DOWN_CHANGE_ADD_TO_CARD = this.ONE_WEEK_BREAKDOWN_TAB.GetHeaderIndex("Change added to Card?")
+
+    private  Record(date: string, hhloc_sum: number, card_sum: number, total: number) {
+        const UPDATE_ROW = this.ONE_WEEK_BREAKDOWN_TAB.FindRow(row => row[this.BREAK_DOWN_DUE_DATE] === date)
+        if (UPDATE_ROW === undefined) {
+            const ROW: DataArrayEntry = []
+            ROW[this.BREAK_DOWN_DUE_DATE] = date
+            ROW[this.BREAK_DOWN_HHLOC] = hhloc_sum
+            ROW[this.BREAK_DOWN_CARD] = card_sum
+            ROW[this.BREAK_DOWN_TOTAL] = total
+            this.ONE_WEEK_BREAKDOWN_TAB.AppendRow(ROW.filter(x => x != null))
+        }
+        else {
+            let [did_parse, data] = this.ONE_WEEK_BREAKDOWN_INTERPRETER.AttemptToParseInput(UPDATE_ROW[this.BREAK_DOWN_OFFSET])
+            let offset = 0
+
+            if (did_parse && typeof data === 'number') {
+                offset = data
+            }
+
+            UPDATE_ROW[this.BREAK_DOWN_DUE_DATE] = date
+            UPDATE_ROW[this.BREAK_DOWN_HHLOC] = hhloc_sum - offset + (total - (card_sum + hhloc_sum))
+            UPDATE_ROW[this.BREAK_DOWN_CARD] = card_sum + offset
+            UPDATE_ROW[this.BREAK_DOWN_TOTAL] = total
+
+            if (UPDATE_ROW[this.BREAK_DOWN_CHANGE_ADD_TO_CARD]) {
+                (UPDATE_ROW[this.BREAK_DOWN_CARD] as number) += UPDATE_ROW[this.BREAK_DOWN_HHLOC] as number
+                UPDATE_ROW[this.BREAK_DOWN_HHLOC] = 0
+            }
+
+            this.ONE_WEEK_BREAKDOWN_TAB.OverWriteRow(UPDATE_ROW)
+        }
     }
-    else {
-        const OFFSET = Number(UPDATE_ROW[bdr_offset])
-        UPDATE_ROW[bdr_due_date_index] = date
-        UPDATE_ROW[bdr_hhloc] = hhloc_sum - OFFSET + (total - (card_sum + hhloc_sum))
-        UPDATE_ROW[bdr_card] = card_sum + OFFSET
-        UPDATE_ROW[bdr_total] = total
-        bdr_tab.OverWriteRow(UPDATE_ROW)
+
+    public  BreakDownRepayment() {
+        let date = ""
+        let total = 0
+        let card_sum = 0
+        let hhloc_sum = 0
+
+        for (let i = 1; i < this.ONE_WEEK_LOAN_TAB.NumberOfRows(); i++) {
+            const ROW = this.ONE_WEEK_LOAN_TAB.GetRow(i)!
+            const PURCHASE_LOC = String(ROW[this.PURCHASE_LOC_COL])
+            const REPAY_LOC = String(ROW[this.PAY_WHERE_COL])
+            const TOTAL = Number(ROW[this.TOTAL_COL])
+
+
+            if (TOTAL !== 0) {
+                total = TOTAL
+            }
+
+            let purchase_amt = Number(ROW[this.PAY_AMT_COL])
+
+            if (typeof ROW[this.PAY_AMT_COL] === 'string') {
+                const PARSE_RESULTS = this.ONE_WEEK_INTERPRETER.ParseInput(ROW[this.PAY_AMT_COL] as string)
+                if (PARSE_RESULTS == null || typeof PARSE_RESULTS !== 'number') {
+                    purchase_amt = 0
+                }
+                else {
+                    purchase_amt = PARSE_RESULTS
+                }
+            }
+
+            if (date === "" && PURCHASE_LOC.startsWith(PURCHASE_HEADER)) {
+                date = PURCHASE_LOC.split(" ")[2]
+            }
+            else if (PURCHASE_LOC.startsWith(PURCHASE_HEADER)) {
+                this.Record(date, hhloc_sum, card_sum, total)
+                date = PURCHASE_LOC.split(" ")[2]
+                card_sum = 0
+                hhloc_sum = 0
+            }
+
+            if (REPAY_LOC === "Card") {
+                card_sum += purchase_amt
+            }
+            else if (REPAY_LOC === "") {
+                card_sum += purchase_amt
+                ROW[this.PAY_WHERE_COL] = PURCHASE_LOC.startsWith(PURCHASE_HEADER) ? "" : "Card"
+            }
+            else if (REPAY_LOC === "HHLOC") {
+                hhloc_sum += purchase_amt
+            }
+
+            this.ONE_WEEK_LOAN_TAB.WriteRow(i, ROW)
+        }
+
+        this.Record(date, card_sum, hhloc_sum, total)
+
+        this.ONE_WEEK_LOAN_TAB.SaveToTab()
+        this.ONE_WEEK_BREAKDOWN_TAB.SaveToTab()
     }
+
 }
 
 
 function BreakDownRepayment() {
-    const ONE_WEEK_LOAN_TAB = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME)
-    const ONE_WEEK_BREAKDOWN_TAB = new GoogleSheetTabs(WEEKLY_PAYMENT_BREAK_DOWN_TAB_NAME)
-    const ONE_WEEK_INTERPETER = new FormulaInterpreter(ONE_WEEK_LOAN_TAB)
-
-    const PAY_WHERE_COL = ONE_WEEK_LOAN_TAB.GetHeaderIndex("Pay Where?")
-    const PAY_AMT_COL = ONE_WEEK_LOAN_TAB.GetHeaderIndex("Amount")
-    const PURCHASE_LOC_COL = ONE_WEEK_LOAN_TAB.GetHeaderIndex("Purchase Location")
-    const TOTAL_COL = ONE_WEEK_LOAN_TAB.GetHeaderIndex("Total")
-    const BREAK_DOWN_DUE_DATE = ONE_WEEK_BREAKDOWN_TAB.GetHeaderIndex("Payment Date")
-    const BREAK_DOWN_HHLOC = ONE_WEEK_BREAKDOWN_TAB.GetHeaderIndex("Amount for HHLOC")
-    const BREAK_DOWN_CARD = ONE_WEEK_BREAKDOWN_TAB.GetHeaderIndex("Amount for Card")
-    const BREAK_DOWN_OFFSET = ONE_WEEK_BREAKDOWN_TAB.GetHeaderIndex("Offset")
-    const BREAK_DOWN_TOTAL = ONE_WEEK_BREAKDOWN_TAB.GetHeaderIndex("Total")
-
-    let date = ""
-    let total = 0
-    let card_sum = 0
-    let hhloc_sum = 0
-
-    for (let i = 1; i < ONE_WEEK_LOAN_TAB.NumberOfRows(); i++) {
-        const ROW = ONE_WEEK_LOAN_TAB.GetRow(i)!
-        const PURCHASE_LOC = String(ROW[PURCHASE_LOC_COL])
-        const REPAY_LOC = String(ROW[PAY_WHERE_COL])
-        const TOTAL = Number(ROW[TOTAL_COL])
-
-
-        if (TOTAL !== 0) {
-            total = TOTAL
-        }
-
-        let purchase_amt = Number(ROW[PAY_AMT_COL])
-
-        if (typeof ROW[PAY_AMT_COL] === 'string') {
-            const PARSE_RESULTS = ONE_WEEK_INTERPETER.ParseInput(ROW[PAY_AMT_COL] as string)
-            if (PARSE_RESULTS == null || typeof PARSE_RESULTS !== 'number') {
-                purchase_amt = 0
-            }
-            else {
-                purchase_amt = PARSE_RESULTS
-            }
-        }
-
-        if (date === "" && PURCHASE_LOC.startsWith(PURCHASE_HEADER)) {
-            date = PURCHASE_LOC.split(" ")[2]
-        }
-        else if (PURCHASE_LOC.startsWith(PURCHASE_HEADER)) {
-            __BDR_Record(ONE_WEEK_BREAKDOWN_TAB, BREAK_DOWN_DUE_DATE, date, BREAK_DOWN_OFFSET, BREAK_DOWN_HHLOC, BREAK_DOWN_CARD, BREAK_DOWN_TOTAL, card_sum, hhloc_sum, total)
-            date = PURCHASE_LOC.split(" ")[2]
-            card_sum = 0
-            hhloc_sum = 0
-        }
-
-        if (REPAY_LOC === "Card") {
-            card_sum += purchase_amt
-        }
-        else if (REPAY_LOC === "") {
-            card_sum += purchase_amt
-            ROW[PAY_WHERE_COL] = PURCHASE_LOC.startsWith(PURCHASE_HEADER) ? "" : "Card"
-        }
-        else if (REPAY_LOC === "HHLOC") {
-            hhloc_sum += purchase_amt
-        }
-
-        ONE_WEEK_LOAN_TAB.WriteRow(i, ROW)
-    }
-
-    __BDR_Record(ONE_WEEK_BREAKDOWN_TAB, BREAK_DOWN_DUE_DATE, date, BREAK_DOWN_OFFSET, BREAK_DOWN_HHLOC, BREAK_DOWN_CARD, BREAK_DOWN_TOTAL, card_sum, hhloc_sum, total)
-
-    ONE_WEEK_LOAN_TAB.SaveToTab()
-    ONE_WEEK_BREAKDOWN_TAB.SaveToTab()
+    new __BDR_BreakDownExpenses().BreakDownRepayment()
 }

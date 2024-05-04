@@ -4,7 +4,7 @@ type CheckPayOut = ({date, total_days, inc, pay_month}: PayOutParams) => boolean
 type Spreadsheet = GoogleAppsScript.Spreadsheet.Spreadsheet;
 type Tab = GoogleAppsScript.Spreadsheet.Sheet;
 type DataArray = Array<DataArrayEntry>;
-type DataArrayEntry = Array<string | number>;
+type DataArrayEntry = Array<string | number | boolean>;
 type DataArrayElement = string | number;
 type Some = {type: "Some", val: NonNullable<unknown>}
 type None = {type: "None"}

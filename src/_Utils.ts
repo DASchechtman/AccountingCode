@@ -1,5 +1,5 @@
-function __Util_ConvertToStrOrNum(val: unknown) {
-  let ret: number | string = ""
+function __Util_ConvertToStrOrNumOrBool(val: unknown) {
+  let ret: number | string | boolean = ""
 
   if (val instanceof Date) {
     ret = __Util_CreateDateString(val)
@@ -9,6 +9,9 @@ function __Util_ConvertToStrOrNum(val: unknown) {
     if (isNaN(ret)) { ret = "" }
   }
   else if (typeof val === "string") {
+    ret = val
+  }
+  else if (typeof val === 'boolean') {
     ret = val
   }
   else if (val != null) {

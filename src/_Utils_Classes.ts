@@ -194,7 +194,7 @@ class GoogleSheetTabs {
 
     public AppendToRow(row_index: number, ...row: DataArrayElement[]) {
         if (row_index < 0 || row_index >= this.data.length) { return undefined }
-        this.data[row_index].push(...row.map(__Util_ConvertToStrOrNum))
+        this.data[row_index].push(...row.map(__Util_ConvertToStrOrNumOrBool))
         return this.CreateRecordedRowCopy(this.data[row_index], row_index)
     }
 
@@ -314,12 +314,12 @@ class GoogleSheetTabs {
             while (this.data[i].length < LONGEST_ROW) {
                 this.data[i].push("")
             }
-            this.data[i] = this.data[i].map(__Util_ConvertToStrOrNum)
+            this.data[i] = this.data[i].map(__Util_ConvertToStrOrNumOrBool)
         }
     }
 
     private CreateRowCopy(row: any[]) {
-        return [...row].map(__Util_ConvertToStrOrNum)
+        return [...row].map(__Util_ConvertToStrOrNumOrBool)
     }
 
     private CreateRecordedRowCopy(row: any[], index: number) {
@@ -329,7 +329,7 @@ class GoogleSheetTabs {
     }
 
     private InitSheetData() {
-        const RANGE_DATA = this.tab.getDataRange().getValues().map(row => row.map(__Util_ConvertToStrOrNum))
+        const RANGE_DATA = this.tab.getDataRange().getValues().map(row => row.map(__Util_ConvertToStrOrNumOrBool))
         this.data = this.tab.getDataRange().getFormulas()
 
         for (let row = 0; row < RANGE_DATA.length; row++) {
@@ -381,6 +381,17 @@ class FormulaInterpreter {
         this.CACHE.set(input, INTERPRET_RESULT.val)
 
         return INTERPRET_RESULT.val
+    }
+
+    public AttemptToParseInput(input: unknown): [boolean, unknown] {
+        let did_parse = false
+        let ret = input
+        if (typeof input === 'string') {
+            const PARSE_ATTEMPT = this.ParseInput(input)
+            did_parse = PARSE_ATTEMPT != null
+            if (did_parse) { ret = PARSE_ATTEMPT }
+        }
+        return [did_parse, ret]
     }
 
     private CacheFormulas() {
@@ -556,12 +567,12 @@ class FormulaInterpreter {
 
         this.INTERPRET_ACTION.set('FUNCTION', (state) => {
             switch (state.result.res) {
-                case 'MULTIPLY': { return Multiply(state) }
-                case 'DIVIDE':   { return Divide(state) }
-                case 'ADD':      { return Add(state) }
-                case 'SUBTRACT': { return Subtract(state) }
-                case 'POWER':    { return Pow(state) }
-                case 'SUM':      { return Sum(state) }
+                case 'MULTIPLY':    { return Multiply(state) }
+                case 'DIVIDE':      { return Divide(state) }
+                case 'ADD':         { return Add(state) }
+                case 'SUBTRACT':    { return Subtract(state) }
+                case 'POWER':       { return Pow(state) }
+                case 'SUM':         { return Sum(state) }
             }
             return this.None
         })

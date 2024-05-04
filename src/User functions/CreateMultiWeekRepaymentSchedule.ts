@@ -35,7 +35,7 @@ function __CMWRS_GenerateRepaymentSchedule() {
     const LOANEE = LOANEE_COL[last_row_index]
     let installment = Number(REPAYMENT_COL[last_row_index]) / NUM_OF_REPAYMENTS
     let payment_days = LOANEE === "Dan" ? 14 : 7
-    let payment_start_date = new Date(REPAYMENT_DATE_COL[last_row_index])
+    let payment_start_date = new Date(String(REPAYMENT_DATE_COL[last_row_index]))
 
     if (ROUND_UP_COL[last_row_index] === "Yes") {
         installment = Math.ceil(installment)
