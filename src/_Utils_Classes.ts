@@ -70,7 +70,7 @@ class GoogleSheetTabs {
     constructor(tab: Tab | string) {
         if (typeof tab === "string") {
             const SHEET_TAB = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tab)
-            if (SHEET_TAB === null) { throw new Error("Tab does not exist") }
+            if (SHEET_TAB === null) { throw new Error(`Error: Tab "${tab}" does not exist.`) }
             tab = SHEET_TAB
         }
 

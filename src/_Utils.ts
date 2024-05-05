@@ -203,6 +203,12 @@ function __Util_CheckAllAreNot<T>(check_type: T, vals: unknown[]) {
   return vals.every(el => el !== check_type)
 }
 
+function __Util_GetDateFromDateHeader(date_header: string) {
+  const HEADER_TEST = new RegExp(`^${PURCHASE_HEADER} \\d{1,2}/\\d{1,2}/\\d{1,2}\\d{1,2}$`)
+  if (HEADER_TEST.test(date_header)) { return date_header.split(" ")[2] }
+  return ""
+}
+
 function __Util_ComputeTotal() {
   const TAB_NAME = "One Week Loans";
   const SHEET = new GoogleSheetTabs(TAB_NAME);
@@ -303,7 +309,7 @@ function __Util_GroupAndHighlightOneWeekLoans(should_shade_red: boolean = true) 
 
     if (last_date_header === -1 && String(row[PURCHASE_LOCATION_INDEX]).startsWith(PURCHASE_HEADER)) {
       last_date_header = i
-      date = String(row[PURCHASE_LOCATION_INDEX]).split(" ")[2]
+      date = __Util_GetDateFromDateHeader(String(row[PURCHASE_LOCATION_INDEX]))
     }
     else if (String(row[PURCHASE_LOCATION_INDEX]).startsWith(PURCHASE_HEADER)) {
       const TAB = SHEET.GetTab()
@@ -343,18 +349,19 @@ function __Util_CreateHeadersForOneWeekLoans(date_header: string, tab_name: stri
 
   GROUPS.set(HEADER_KEY, [TAB.GetRow(0)!])
 
-  for (let i = 1; i < TAB.NumberOfRows(); i++) {
-    const ROW = TAB.GetRow(i)!
+  TAB.ForEachRow((row, i) => {
+    if (i === 0) { return 'continue' }
+    const ROW = row
 
     const DATE = String(ROW[DATE_HEADER_INDEX])
-    if (DATE === "") { continue }
+    if (DATE === "") { return 'continue' }
 
     if (!GROUPS.has(DATE)) {
       GROUPS.set(DATE, [])
     }
 
     GROUPS.get(DATE)!.push(ROW)
-  }
+  })
 
   TAB.EraseTab()
 
@@ -371,12 +378,16 @@ function __Util_CreateHeadersForOneWeekLoans(date_header: string, tab_name: stri
     return HEADER
   }
 
-  for (let [date, group] of GROUPS) {
-    if (date === HEADER_KEY) { TAB.AppendRow(group[0]); continue }
+  for (let [date_key, group] of GROUPS) {
+    if (date_key === HEADER_KEY) { 
+      TAB.AppendRow(group[0])
+      continue
+    }
+
     let start_of_grouping = true
     for (let row of group) {
       if (start_of_grouping) {
-        TAB.AppendRow(CreateDateHeader(row.length, date))
+        TAB.AppendRow(CreateDateHeader(row.length, date_key))
         start_of_grouping = false
       }
       TAB.AppendRow(row)

@@ -19,12 +19,13 @@ class __BDR_BreakDownExpenses {
     private Record(date: string, hhloc_sum: number, card_sum: number, total: number) {
         const UPDATE_ROW = this.ONE_WEEK_BREAKDOWN_TAB.FindRow(row => row[this.BREAK_DOWN_DUE_DATE] === date)
         if (UPDATE_ROW === undefined) {
-            const ROW: DataArrayEntry = []
+            const ROW = this.ONE_WEEK_BREAKDOWN_TAB.FindRow(row => row[this.BREAK_DOWN_DUE_DATE] === "")
+            if (ROW === undefined) { return }
             ROW[this.BREAK_DOWN_DUE_DATE] = date
             ROW[this.BREAK_DOWN_HHLOC] = hhloc_sum
             ROW[this.BREAK_DOWN_CARD] = card_sum
             ROW[this.BREAK_DOWN_TOTAL] = total
-            this.ONE_WEEK_BREAKDOWN_TAB.AppendRow(ROW.filter(x => x != null))
+            this.ONE_WEEK_BREAKDOWN_TAB.OverWriteRow(ROW)
         }
         else {
             let [did_parse, data] = this.ONE_WEEK_BREAKDOWN_INTERPRETER.AttemptToParseInput(UPDATE_ROW[this.BREAK_DOWN_OFFSET])
@@ -108,7 +109,7 @@ class __BDR_BreakDownExpenses {
             })
         })
 
-        this.Record(date, card_sum, hhloc_sum, total)
+        this.Record(date, hhloc_sum, card_sum, total)
 
         this.ONE_WEEK_LOAN_TAB.SaveToTab()
         this.ONE_WEEK_BREAKDOWN_TAB.SaveToTab()
