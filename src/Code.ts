@@ -13,6 +13,10 @@ function onEdit(e: unknown) {
     case BUDGET_PLANNER_TAB_NAME: {
       break
     }
+    case PERSONAL_LEDGER_TAB_NAME: {
+      TallyPersonalLedgerExpenses()
+      break
+    }
   }
 }
 
