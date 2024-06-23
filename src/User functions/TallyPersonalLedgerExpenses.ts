@@ -1,4 +1,21 @@
-function ___TPLE_ComputeMonthCashflow(row_start: number, col_start: number, col_end: number, ledger: GoogleSheetTabs, date_header_test: Parser, inter: FormulaInterpreter): void {
+function __TPLE_IsBorrowed(ledger: GoogleSheetTabs, debit_row_index: number, credit_row_index: number, amt_row_index: number, cur_row: number) {
+    if (cur_row + 1 >= ledger.NumberOfRows()) { return false }
+    const CUR_ROW = ledger.GetRow(cur_row)!
+    const NEXT_ROW = ledger.GetRow(cur_row + 1)!
+
+    let is_borrowed = false
+
+    if (CUR_ROW[debit_row_index] === "Checkings" && CUR_ROW[credit_row_index] === "HHLOC") {
+        const NOT_GOING_TO_OWNED_ACCOUNT = NEXT_ROW[debit_row_index] !== "Checkings" && NEXT_ROW[debit_row_index] !== "HHLOC"
+        if (NOT_GOING_TO_OWNED_ACCOUNT && NEXT_ROW[credit_row_index] === "Checkings") {
+            is_borrowed = CUR_ROW[amt_row_index] === NEXT_ROW[amt_row_index]
+        }
+    }
+
+    return is_borrowed
+}
+
+function ___TPLE_ComputeMonthCashflow(row_start: number, col_start: number, ledger: GoogleSheetTabs, date_header_test: Parser, inter: FormulaInterpreter): void {
     let category_index = -1
     let transaction_index = -1
     let debit_index = -1
@@ -9,6 +26,7 @@ function ___TPLE_ComputeMonthCashflow(row_start: number, col_start: number, col_
     let income_total = 0
     let hhloc_total = 0
     let expense_total = 0
+    let borrowed_total = 0
 
     for(let i = row_start; i < ledger.NumberOfRows(); i++) {
         const ROW = ledger.GetRow(i)!
@@ -32,23 +50,44 @@ function ___TPLE_ComputeMonthCashflow(row_start: number, col_start: number, col_
             }
         }
 
-        if (ROW[debit_index] === "Checkings" && !isNaN(amt)) {
+        const IS_EXPENSE = (
+            String(ROW[credit_index]).toLowerCase().trim() === "income"
+            && String(ROW[debit_index]).toLowerCase().trim() !== "hhloc"
+            && String(ROW[debit_index]).toLowerCase().trim() !== "checkings"
+            && !isNaN(amt)
+        )
+
+        if (__TPLE_IsBorrowed(ledger, debit_index, credit_index, debit_amt_index, i)) {
+            borrowed_total += amt
+            income_total += amt
+            i++
+        }
+        else if (IS_EXPENSE) {
+            expense_total += amt
+        }
+        else if (/^(G|g)ift from.+$/.test(String(ROW[category_index]))) {
+            const GIFT_FROM = String(ROW[category_index]).split("from")[1].trim()
+            const GIFT_ROW = ledger.FindRow(row => row[credit_index] === GIFT_FROM)
+            if (GIFT_ROW) {
+                const GIFT_AMT = Number(GIFT_ROW[credit_amt_index])
+                income_total -= !isNaN(GIFT_AMT) ? GIFT_AMT : 0
+            }
+        }
+        else if (ROW[debit_index] === "Checkings" && !isNaN(amt)) {
             income_total += amt
         }
         else if (ROW[debit_index] === "HHLOC" && !isNaN(amt)) {
             hhloc_total += amt
         }
-        else if (!isNaN(amt)) {
-            expense_total += amt
-        }
     }
 
     const FIRST_ROW = ledger.GetRow(row_start)
     if (FIRST_ROW === undefined) { return }
-    FIRST_ROW[col_start] = `Total Income: $${income_total}`
-    FIRST_ROW[col_start+1] = `Total Expenses: $${expense_total}`
-    FIRST_ROW[col_start+2] = `Total HH Loans: $${hhloc_total}`
-    FIRST_ROW[col_start+3] = `Remaining Spend Power: $${(income_total -(expense_total + hhloc_total)).toFixed(2)}`
+    FIRST_ROW[col_start] = `Total Income: $${income_total.toFixed(2)}`
+    FIRST_ROW[col_start+1] = `Total Expenses: $${expense_total.toFixed(2)}`
+    FIRST_ROW[col_start+2] = `Total HH Repayments: $${hhloc_total.toFixed(2)}`
+    FIRST_ROW[col_start+3] = `Total Borrowed: $${borrowed_total.toFixed(2)}`
+    FIRST_ROW[col_start+4] = `Remaining Spend Power: $${(income_total - (expense_total + hhloc_total + borrowed_total)).toFixed(2)}`
     ledger.OverWriteRow(FIRST_ROW)
 }
 
@@ -87,7 +126,7 @@ function TallyPersonalLedgerExpenses() {
         for (let j = 0; j < ROW.length; j++) {
             let cell = ROW[j]
             if (DATE_HEADER.Run(String(cell)).is_error) { continue }
-            ___TPLE_ComputeMonthCashflow(i+1, j, NUM_OF_LEDGER_COLS, LEDGER, DATE_HEADER, LEDGER_FORMULA_INTERPRETER)
+            ___TPLE_ComputeMonthCashflow(i+1, j, LEDGER, DATE_HEADER, LEDGER_FORMULA_INTERPRETER)
             j += NUM_OF_LEDGER_COLS - 1
             found_headers = true
         }

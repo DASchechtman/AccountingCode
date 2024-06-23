@@ -311,10 +311,10 @@ function __Util_GroupAndHighlightOneWeekLoans(should_shade_red: boolean = true) 
       last_date_header = i
       date = __Util_GetDateFromDateHeader(String(row[PURCHASE_LOCATION_INDEX]))
     }
-    else if (String(row[PURCHASE_LOCATION_INDEX]).startsWith(PURCHASE_HEADER)) {
+    else if (String(row[PURCHASE_LOCATION_INDEX]).startsWith(PURCHASE_HEADER) || i === SHEET.NumberOfRows() - 1) {
       const TAB = SHEET.GetTab()
       const DATE = new Date(String(row[PURCHASE_LOCATION_INDEX]).split(" ")[2])
-      const RANGE_STR = `A${last_date_header + 2}:A${i}`
+      const RANGE_STR = `A${last_date_header + 2}:A${i + Number(i === SHEET.NumberOfRows() - 1)}`
       const RANGE = TAB.getRange(RANGE_STR)
 
       try {

@@ -38,6 +38,7 @@ function onOpen(_: SpreadSheetOpenEventObject) {
     .addItem("Create New Household Budget Tab", "CreateNewHouseholdBudgetTab")
     .addItem("Group One Week Loans", "GroupOneWeekLoans")
     .addItem("Break Down Repayments", "BreakDownRepayment")
+    .addItem("Tally Personal Ledger Expenses", "TallyPersonalLedgerExpenses")
     .addToUi();
   __Util_CacheSheets()
 }
