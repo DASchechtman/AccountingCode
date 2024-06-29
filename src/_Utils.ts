@@ -209,7 +209,7 @@ function __Util_GetDateFromDateHeader(date_header: string) {
   return ""
 }
 
-function __Util_ComputeTotal() {
+function __Util_ComputeTotal_Archived() {
   const TAB_NAME = "One Week Loans";
   const SHEET = new GoogleSheetTabs(TAB_NAME);
   const FORMULA_INTERPRETER = new FormulaInterpreter(SHEET);
@@ -274,12 +274,12 @@ function __Util_ComputeTotal() {
         TOTAL_INDEX[last_amt] = __Util_AddToFixed(total, 0, Math.ceil)
       }
       last_recorded_date = DUE_DATE;
-      total = AMOUNT;
+      total = Math.ceil(AMOUNT);
       last_amt = i
       TOTAL_INDEX[i] = ""
     }
     else {
-      total += AMOUNT;
+      total += Math.ceil(AMOUNT);
       last_amt = i
       TOTAL_INDEX[i] = ""
     }
@@ -295,6 +295,79 @@ function __Util_ComputeTotal() {
   SHEET.SaveToTab();
 }
 
+function __Util_ComputeTotal() {
+  const ONE_WEEK_LOAN_SHEET = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME)
+
+  const PURCHASE_LOC_COL_INDEX = ONE_WEEK_LOAN_SHEET.GetHeaderIndex("Purchase Location")
+  const AMOUNT_COL_INDEX = ONE_WEEK_LOAN_SHEET.GetHeaderIndex("Amount")
+  const DUE_DATE_COL_INDEX = ONE_WEEK_LOAN_SHEET.GetHeaderIndex("Due Date")
+  const TOTAL_COL_INDEX = ONE_WEEK_LOAN_SHEET.GetHeaderIndex("Total")
+  const MONEY_LEFT_COL_INDEX = ONE_WEEK_LOAN_SHEET.GetHeaderIndex("Money Left")
+  const PURCHASE_DATE_COL_INDEX = ONE_WEEK_LOAN_SHEET.GetHeaderIndex("Purchase Date")
+  const WEEKLY_TOTALS = new Map<string, {total: number}>()
+  const WEEKLY_SPENDING_LIMIT = 150
+  
+  let last_date = ""
+  let money_left = 0
+  let in_cur_month = false
+
+  ONE_WEEK_LOAN_SHEET.ForEachRow((row, i) => {
+    const HEADER_DATE = __Util_GetDateFromDateHeader(String(row[PURCHASE_LOC_COL_INDEX]))
+    if (HEADER_DATE !== "" && !WEEKLY_TOTALS.has(HEADER_DATE)) {
+      WEEKLY_TOTALS.set(HEADER_DATE, {total: 0})
+      
+      if (last_date === "") {
+        last_date = HEADER_DATE
+      }
+      else {
+        const LAST_ROW = ONE_WEEK_LOAN_SHEET.GetRow(i-1)!
+        const LAST_TOTAL = WEEKLY_TOTALS.get(last_date)!
+        LAST_ROW[TOTAL_COL_INDEX] = LAST_TOTAL.total
+
+        if (!in_cur_month && __Util_DateInCurrentPayPeriod(HEADER_DATE)) {
+          in_cur_month = true
+        }
+        else if (in_cur_month && !__Util_DateInCurrentPayPeriod(HEADER_DATE)) {
+          in_cur_month = false
+          LAST_ROW[MONEY_LEFT_COL_INDEX] = money_left
+          money_left = 0
+        }
+
+        if (in_cur_month) {
+          money_left += WEEKLY_SPENDING_LIMIT
+        }
+
+        ONE_WEEK_LOAN_SHEET.OverWriteRow(LAST_ROW)
+        last_date = HEADER_DATE
+      }
+    }
+
+    const DUE_DATE = String(row[DUE_DATE_COL_INDEX])
+    if (!WEEKLY_TOTALS.has(DUE_DATE)) { return 'continue' }
+    
+    const TOTALS = WEEKLY_TOTALS.get(DUE_DATE)!
+    const PURCHASE_TOTAL = Number(row[AMOUNT_COL_INDEX])
+    TOTALS.total += Math.ceil(PURCHASE_TOTAL)
+
+    if (in_cur_month) {
+      money_left -= Math.ceil(PURCHASE_TOTAL)
+    }
+
+    if (HEADER_DATE === "") {
+      row[PURCHASE_DATE_COL_INDEX] = __Util_GetDateWhenCellEmpty(row[PURCHASE_DATE_COL_INDEX])
+    }
+
+    if (i + 1 === ONE_WEEK_LOAN_SHEET.NumberOfRows()) {
+      row[TOTAL_COL_INDEX] = TOTALS.total
+      row[MONEY_LEFT_COL_INDEX] = in_cur_month ? money_left : row[MONEY_LEFT_COL_INDEX]
+    }
+
+    return row
+  }, true)
+
+  ONE_WEEK_LOAN_SHEET.SaveToTab()
+}
+
 function __Util_GroupAndHighlightOneWeekLoans(should_shade_red: boolean = true) {
   const SHEET = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME)
   const CUR_DATE = new Date()
@@ -305,27 +378,31 @@ function __Util_GroupAndHighlightOneWeekLoans(should_shade_red: boolean = true) 
   let last_date_header = -1
 
   SHEET.ForEachRow((row, i, range) => {
-    if (i === 0) { return 'continue' }
 
     if (last_date_header === -1 && String(row[PURCHASE_LOCATION_INDEX]).startsWith(PURCHASE_HEADER)) {
-      last_date_header = i
       date = __Util_GetDateFromDateHeader(String(row[PURCHASE_LOCATION_INDEX]))
+      last_date_header = i
     }
     else if (String(row[PURCHASE_LOCATION_INDEX]).startsWith(PURCHASE_HEADER) || i === SHEET.NumberOfRows() - 1) {
       const TAB = SHEET.GetTab()
       const DATE = new Date(String(row[PURCHASE_LOCATION_INDEX]).split(" ")[2])
       const RANGE_STR = `A${last_date_header + 2}:A${i + Number(i === SHEET.NumberOfRows() - 1)}`
       const RANGE = TAB.getRange(RANGE_STR)
+      let group
 
-      try {
-        const GROUP = TAB.getRowGroup(last_date_header + 2, 1)
-        GROUP?.remove()
-        RANGE.shiftRowGroupDepth(1)
-      } catch {
-        RANGE.shiftRowGroupDepth(1)
+      if (__Util_CompareDates(date, CUR_DATE)) {
+        try {
+          group = TAB.getRowGroup(last_date_header + 2, 1)
+          group?.remove()
+          RANGE.shiftRowGroupDepth(1)
+          group = TAB.getRowGroup(last_date_header + 2, 1)
+        } catch {
+          RANGE.shiftRowGroupDepth(1)
+          group = TAB.getRowGroup(last_date_header + 2, 1)
+        }
       }
 
-      if (__Util_CompareDates(CUR_DATE, date)) {
+      if (!group?.isCollapsed() && __Util_CompareDates(CUR_DATE, date)) {
         RANGE.collapseGroups()
       }
 
@@ -333,11 +410,11 @@ function __Util_GroupAndHighlightOneWeekLoans(should_shade_red: boolean = true) 
       last_date_header = i
       color_index++
     }
-
-    if (__Util_CompareDates(CUR_DATE, date)) {
+    const BG_COLOR = range.getBackground().toUpperCase()
+    if (__Util_CompareDates(CUR_DATE, date) && !LIGHT_RED_SHADES.includes(BG_COLOR)) {
       range.setBackground(LIGHT_RED_SHADES[color_index % LIGHT_RED_SHADES.length])
     }
-  })
+  }, true)
 }
 
 function __Util_CreateHeadersForOneWeekLoans(date_header: string, tab_name: string) {
@@ -379,7 +456,7 @@ function __Util_CreateHeadersForOneWeekLoans(date_header: string, tab_name: stri
   }
 
   for (let [date_key, group] of GROUPS) {
-    if (date_key === HEADER_KEY) { 
+    if (date_key === HEADER_KEY) {
       TAB.AppendRow(group[0])
       continue
     }
@@ -404,4 +481,33 @@ function __Util_GroupByDate(
 ) {
   __Util_CreateHeadersForOneWeekLoans(date_header, tab_name)
   __Util_GroupAndHighlightOneWeekLoans(shade_red)
+}
+
+function __Util_DateInCurrentPayPeriod(compare_date: string) {
+  const COMPARE_DATE = new Date(compare_date)
+  const CUR_DAY = new Date()
+  if (COMPARE_DATE.toString() === "Invalid Date") { return false }
+
+  let test_month = COMPARE_DATE.getMonth()
+  let test_day = COMPARE_DATE.getDate()
+  let test_year = COMPARE_DATE.getFullYear()
+
+  if (test_day >= 28) {
+    test_month = (test_month + 1) % 12
+    test_year = test_month === 0 ? test_year + 1 : test_year
+  }
+
+  let cur_month = CUR_DAY.getMonth()
+  let cur_day = CUR_DAY.getDate()
+  let cur_year = CUR_DAY.getFullYear()
+
+  if (cur_day >= 28) {
+    cur_month = (cur_month + 1) % 12
+    cur_year = cur_month === 0 ? cur_year + 1 : cur_year
+  }
+
+  const SAME_MONTH = cur_month === test_month
+  const SAME_YEAR = cur_year === test_year
+
+  return SAME_MONTH && SAME_YEAR
 }
