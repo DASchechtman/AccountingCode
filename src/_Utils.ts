@@ -355,6 +355,8 @@ function __Util_ComputeTotal() {
 
     if (HEADER_DATE === "") {
       row[PURCHASE_DATE_COL_INDEX] = __Util_GetDateWhenCellEmpty(row[PURCHASE_DATE_COL_INDEX])
+      row[TOTAL_COL_INDEX] = ""
+      row[MONEY_LEFT_COL_INDEX] = ""
     }
 
     if (i + 1 === ONE_WEEK_LOAN_SHEET.NumberOfRows()) {
