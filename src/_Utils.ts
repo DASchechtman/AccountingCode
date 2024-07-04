@@ -5,13 +5,10 @@ function __Util_ConvertToStrOrNumOrBool(val: unknown) {
     ret = __Util_CreateDateString(val)
   }
   else if (typeof val === "number") {
-    ret = Number(val)
+    ret = val
     if (isNaN(ret)) { ret = "" }
   }
-  else if (typeof val === "string") {
-    ret = val
-  }
-  else if (typeof val === 'boolean') {
+  else if (typeof val === "string" || typeof val === 'boolean') {
     ret = val
   }
   else if (val != null) {
@@ -297,6 +294,7 @@ function __Util_ComputeTotal_Archived() {
 
 function __Util_ComputeTotal() {
   const ONE_WEEK_LOAN_SHEET = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME)
+  const ONE_WEEK_INTERPRETER = new FormulaInterpreter(ONE_WEEK_LOAN_SHEET)
 
   const PURCHASE_LOC_COL_INDEX = ONE_WEEK_LOAN_SHEET.GetHeaderIndex("Purchase Location")
   const AMOUNT_COL_INDEX = ONE_WEEK_LOAN_SHEET.GetHeaderIndex("Amount")
@@ -305,7 +303,12 @@ function __Util_ComputeTotal() {
   const MONEY_LEFT_COL_INDEX = ONE_WEEK_LOAN_SHEET.GetHeaderIndex("Money Left")
   const PURCHASE_DATE_COL_INDEX = ONE_WEEK_LOAN_SHEET.GetHeaderIndex("Purchase Date")
   const WEEKLY_TOTALS = new Map<string, {total: number}>()
+  const IN_CUR_MONTH_DATES = new Array<string>()
   const WEEKLY_SPENDING_LIMIT = 150
+
+  const GetMoneyLeft = (money_left: number) => {
+    return money_left - IN_CUR_MONTH_DATES.reduce((p, c) => p + WEEKLY_TOTALS.get(c)!.total, 0)
+  }
   
   let last_date = ""
   let money_left = 0
@@ -329,12 +332,14 @@ function __Util_ComputeTotal() {
         }
         else if (in_cur_month && !__Util_DateInCurrentPayPeriod(HEADER_DATE)) {
           in_cur_month = false
-          LAST_ROW[MONEY_LEFT_COL_INDEX] = money_left
+          LAST_ROW[MONEY_LEFT_COL_INDEX] = GetMoneyLeft(money_left)
           money_left = 0
+          IN_CUR_MONTH_DATES.splice(0, IN_CUR_MONTH_DATES.length)
         }
 
         if (in_cur_month) {
           money_left += WEEKLY_SPENDING_LIMIT
+          IN_CUR_MONTH_DATES.push(HEADER_DATE)
         }
 
         ONE_WEEK_LOAN_SHEET.OverWriteRow(LAST_ROW)
@@ -346,22 +351,27 @@ function __Util_ComputeTotal() {
     if (!WEEKLY_TOTALS.has(DUE_DATE)) { return 'continue' }
     
     const TOTALS = WEEKLY_TOTALS.get(DUE_DATE)!
-    const PURCHASE_TOTAL = Number(row[AMOUNT_COL_INDEX])
-    TOTALS.total += Math.ceil(PURCHASE_TOTAL)
+    let purchase_total = Number(row[AMOUNT_COL_INDEX])
 
-    if (in_cur_month) {
-      money_left -= Math.ceil(PURCHASE_TOTAL)
+    if (isNaN(purchase_total)) {
+      const [did_parse, parse_res] = ONE_WEEK_INTERPRETER.AttemptToParseInput(row[AMOUNT_COL_INDEX])
+      purchase_total = did_parse ? Number(parse_res) : 0
     }
+
+    purchase_total = Math.ceil(purchase_total)
+
+
+    TOTALS.total += purchase_total
 
     if (HEADER_DATE === "") {
       row[PURCHASE_DATE_COL_INDEX] = __Util_GetDateWhenCellEmpty(row[PURCHASE_DATE_COL_INDEX])
       row[TOTAL_COL_INDEX] = ""
-      row[MONEY_LEFT_COL_INDEX] = ""
+      row[MONEY_LEFT_COL_INDEX] = in_cur_month ? "" : row[MONEY_LEFT_COL_INDEX]
     }
 
     if (i + 1 === ONE_WEEK_LOAN_SHEET.NumberOfRows()) {
       row[TOTAL_COL_INDEX] = TOTALS.total
-      row[MONEY_LEFT_COL_INDEX] = in_cur_month ? money_left : row[MONEY_LEFT_COL_INDEX]
+      row[MONEY_LEFT_COL_INDEX] = in_cur_month ? GetMoneyLeft(money_left) : row[MONEY_LEFT_COL_INDEX]
     }
 
     return row
