@@ -316,21 +316,38 @@ function __Util_ComputeTotal() {
 
   ONE_WEEK_LOAN_SHEET.ForEachRow((row, i) => {
     const HEADER_DATE = __Util_GetDateFromDateHeader(String(row[PURCHASE_LOC_COL_INDEX]))
-    if (HEADER_DATE !== "" && !WEEKLY_TOTALS.has(HEADER_DATE)) {
-      WEEKLY_TOTALS.set(HEADER_DATE, {total: 0})
+    const DUE_DATE = String(row[DUE_DATE_COL_INDEX])
+
+    let date = HEADER_DATE
+    if (date === "") { date = DUE_DATE }
+
+    if (date === "") {
+      date = last_date
+      row[DUE_DATE_COL_INDEX] = last_date
+    }
+    else if (date.toLowerCase() === "nw") {
+      const LAST_DATE = new Date(last_date)
+      LAST_DATE.setDate(LAST_DATE.getDate() + 7)
+      date = __Util_CreateDateString(LAST_DATE)
+      row[DUE_DATE_COL_INDEX] = date
+    }
+
+
+    if (date !== "" && !WEEKLY_TOTALS.has(date)) {
+      WEEKLY_TOTALS.set(date, {total: 0})
       
       if (last_date === "") {
-        last_date = HEADER_DATE
+        last_date = date
       }
       else {
         const LAST_ROW = ONE_WEEK_LOAN_SHEET.GetRow(i-1)!
         const LAST_TOTAL = WEEKLY_TOTALS.get(last_date)!
         LAST_ROW[TOTAL_COL_INDEX] = LAST_TOTAL.total
 
-        if (!in_cur_month && __Util_DateInCurrentPayPeriod(HEADER_DATE)) {
+        if (!in_cur_month && __Util_DateInCurrentPayPeriod(date)) {
           in_cur_month = true
         }
-        else if (in_cur_month && !__Util_DateInCurrentPayPeriod(HEADER_DATE)) {
+        else if (in_cur_month && !__Util_DateInCurrentPayPeriod(date)) {
           in_cur_month = false
           LAST_ROW[MONEY_LEFT_COL_INDEX] = GetMoneyLeft(money_left)
           money_left = 0
@@ -339,18 +356,18 @@ function __Util_ComputeTotal() {
 
         if (in_cur_month) {
           money_left += WEEKLY_SPENDING_LIMIT
-          IN_CUR_MONTH_DATES.push(HEADER_DATE)
+          IN_CUR_MONTH_DATES.push(date)
         }
 
         ONE_WEEK_LOAN_SHEET.OverWriteRow(LAST_ROW)
-        last_date = HEADER_DATE
+        last_date = date
       }
     }
 
-    const DUE_DATE = String(row[DUE_DATE_COL_INDEX])
-    if (!WEEKLY_TOTALS.has(DUE_DATE)) { return 'continue' }
     
-    const TOTALS = WEEKLY_TOTALS.get(DUE_DATE)!
+    if (!WEEKLY_TOTALS.has(date)) { return 'continue' }
+    
+    const TOTALS = WEEKLY_TOTALS.get(date)!
     let purchase_total = Number(row[AMOUNT_COL_INDEX])
 
     if (isNaN(purchase_total)) {
