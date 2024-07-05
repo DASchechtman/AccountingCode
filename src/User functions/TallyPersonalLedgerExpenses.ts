@@ -60,6 +60,7 @@ function ___TPLE_ComputeMonthCashflow(row_start: number, col_start: number, ledg
         if (__TPLE_IsBorrowed(ledger, debit_index, credit_index, debit_amt_index, i)) {
             borrowed_total += amt
             income_total += amt
+            expense_total += amt
             i++
         }
         else if (IS_EXPENSE) {
