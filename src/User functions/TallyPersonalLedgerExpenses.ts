@@ -88,7 +88,7 @@ function ___TPLE_ComputeMonthCashflow(row_start: number, col_start: number, ledg
     FIRST_ROW[col_start+1] = `Total Expenses: $${expense_total.toFixed(2)}`
     FIRST_ROW[col_start+2] = `Total HH Repayments: $${hhloc_total.toFixed(2)}`
     FIRST_ROW[col_start+3] = `Total Borrowed: $${borrowed_total.toFixed(2)}`
-    FIRST_ROW[col_start+4] = `Remaining Spend Power: $${(income_total - (expense_total + hhloc_total + borrowed_total)).toFixed(2)}`
+    FIRST_ROW[col_start+4] = `Remaining Spend Power: $${(income_total - (expense_total + hhloc_total)).toFixed(2)}`
     ledger.OverWriteRow(FIRST_ROW)
 }
 
