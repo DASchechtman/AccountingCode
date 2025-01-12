@@ -59,7 +59,7 @@ function HouseSavingsOnEdit() {
             .map(s => s.trim())
             .filter(s => s !== '')
 
-        if (SPLIT_RANGE.length < 2) {
+        if (SPLIT_RANGE.length !== 2) {
             row[1] = 0
         }
         else {
