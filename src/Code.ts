@@ -2,22 +2,8 @@ function onEdit(e: unknown) {
   if (!__Util_EventObjectIsEditEventObject(e)) { return }
   const TAB_NAME = e.range.getSheet().getName();
 
-  switch (TAB_NAME) {
-    case MULTI_WEEK_LOANS_TAB_NAME: {
-      break
-    }
-    case ONE_WEEK_LOANS_TAB_NAME: {
-      __Util_ComputeTotal()
-      break
-    }
-    case BUDGET_PLANNER_TAB_NAME: {
-      break
-    }
-    case PERSONAL_LEDGER_TAB_NAME: {
-      TallyPersonalLedgerExpenses()
-      break
-    }
-  }
+  if (TAB_NAME === ONE_WEEK_LOANS_TAB_NAME) { __Util_ComputeTotal() }
+  else if (TAB_NAME === HOUSE_SAVINGS_TAB_NAME) { HouseSavingsOnEdit() }
 }
 
 function onOpen(_: SpreadSheetOpenEventObject) {
@@ -41,4 +27,10 @@ function onOpen(_: SpreadSheetOpenEventObject) {
     .addItem("Tally Personal Ledger Expenses", "TallyPersonalLedgerExpenses")
     .addToUi();
   __Util_CacheSheets()
+}
+
+function onDailyTrigger() {
+  BreakDownRepayment()
+  GroupAndCollapseBills()
+  ComputeTotalMonthly()
 }

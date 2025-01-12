@@ -304,7 +304,7 @@ function __Util_ComputeTotal() {
   const PURCHASE_DATE_COL_INDEX = ONE_WEEK_LOAN_SHEET.GetHeaderIndex("Purchase Date")
   const WEEKLY_TOTALS = new Map<string, { total: number }>()
   const IN_CUR_MONTH_DATES = new Array<string>()
-  const WEEKLY_SPENDING_LIMIT = 150
+  const WEEKLY_SPENDING_LIMIT = [150, 126].at(-1)!
 
   const GetMoneyLeft = (money_left: number) => {
     return money_left - IN_CUR_MONTH_DATES.reduce((p, c) => p + WEEKLY_TOTALS.get(c)!.total, 0)

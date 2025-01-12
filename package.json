@@ -7,6 +7,6 @@
     "typescript": "^5.3.3"
   },
   "scripts": {
-    "deploy": "npx tsc && ./MoveToRoot.sh && cd ./out && npx clasp push"
+    "deploy": "npx tsc && ./MoveToRoot.sh && cd '/mnt/g/My Drive/from carthage drive/Documents/Finances/code/out' && npx clasp push"
   }
 }

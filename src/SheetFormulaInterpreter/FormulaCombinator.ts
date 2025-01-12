@@ -127,7 +127,7 @@ function __SFI_CreateMathFormula() {
         const Parens = new Parser(__SFI_SeqOf(__SFI_Str("("), FormulaArgs, __SFI_Str(")"))).Map(state => {
             return { 
                 ...state.child_nodes[1].result,
-                type: "PARENS"
+                type: "OP_PAREN"
             }
         })
         return __SFI_Choice(FuncCallParser, Parens, CellParser, Num)
