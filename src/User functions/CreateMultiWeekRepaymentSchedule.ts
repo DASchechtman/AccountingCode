@@ -185,7 +185,7 @@ function CreateMultiWeekRepaymentSchedule() {
     const GENERATED = __CMWRS_GenerateRepaymentSchedule()
     if (GENERATED) {
         __Util_GroupByDate("Purchase Date", MULTI_WEEK_LOANS_TAB_NAME, false);
-        __Util_GroupByDate("Due Date", ONE_WEEK_LOANS_TAB_NAME);
+        __Util_GroupByDate("Due Date", WEEKLY_CREDIT_CHARGES_TAB_NAME);
         __Util_ComputeTotal();
     }
 }

@@ -160,7 +160,7 @@ function __Util_CompareDates(date1: Date | string, date2: Date | string) {
 }
 
 function __Util_CacheSheets() {
-  __CacheTab(ONE_WEEK_LOANS_TAB_NAME)
+  __CacheTab(WEEKLY_CREDIT_CHARGES_TAB_NAME)
   __CacheTab(MULTI_WEEK_LOANS_TAB_NAME)
 }
 
@@ -293,7 +293,7 @@ function __Util_ComputeTotal_Archived() {
 }
 
 function __Util_ComputeTotal() {
-  const ONE_WEEK_LOAN_SHEET = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME)
+  const ONE_WEEK_LOAN_SHEET = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
   const ONE_WEEK_INTERPRETER = new FormulaInterpreter(ONE_WEEK_LOAN_SHEET)
 
   const PURCHASE_LOC_COL_INDEX = ONE_WEEK_LOAN_SHEET.GetHeaderIndex("Purchase Location")
@@ -406,7 +406,7 @@ function __Util_ComputeTotal() {
 }
 
 function __Util_GroupAndHighlightOneWeekLoans(should_shade_red: boolean = true) {
-  const SHEET = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME)
+  const SHEET = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
   const CUR_DATE = new Date()
   const PURCHASE_LOCATION_INDEX = SHEET.GetHeaderIndex("Purchase Location")
   const LIGHT_RED_SHADES = ["#FF7F7F", "#FF9F9F"]
@@ -455,7 +455,7 @@ function __Util_GroupAndHighlightOneWeekLoans(should_shade_red: boolean = true) 
 }
 
 function __Util_CreateHeadersForOneWeekLoans(date_header: string, tab_name: string) {
-  const TAB = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME)
+  const TAB = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
   const DATE_HEADER_INDEX = TAB.GetHeaderIndex(date_header)
   const PURCHASE_LOCATION_INDEX = TAB.GetHeaderIndex("Purchase Location")
   const GROUPS = new Map<string, DataArray>()

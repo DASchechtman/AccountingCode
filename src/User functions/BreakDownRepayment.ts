@@ -1,5 +1,5 @@
 class __BDR_BreakDownExpenses {
-    private readonly ONE_WEEK_LOAN_TAB = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME)
+    private readonly ONE_WEEK_LOAN_TAB = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
     private readonly ONE_WEEK_BREAKDOWN_TAB = new GoogleSheetTabs(WEEKLY_PAYMENT_BREAK_DOWN_TAB_NAME)
     private readonly ONE_WEEK_INTERPRETER = new FormulaInterpreter(this.ONE_WEEK_LOAN_TAB)
     private readonly ONE_WEEK_BREAKDOWN_INTERPRETER = new FormulaInterpreter(this.ONE_WEEK_BREAKDOWN_TAB)
