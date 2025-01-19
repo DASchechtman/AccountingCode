@@ -254,8 +254,13 @@ class GoogleSheetTabs {
         return this.tab.getRange(RANGE_NOTATION)
     }
 
-    public ForEachRow(func: (row: DataArrayEntry, i: number, range: GoogleAppsScript.Spreadsheet.Range) => DataArrayEntry | 'break' | 'continue' | void, skip_first_row: boolean = false) {
-        for (let i = Number(skip_first_row); i < this.data.length; i++) {
+    public ForEachRow(func: (row: DataArrayEntry, i: number, range: GoogleAppsScript.Spreadsheet.Range) => DataArrayEntry | 'break' | 'continue' | void, start_row: boolean | number = false) {
+        if (typeof start_row === 'number') {
+            if (start_row < 0) { start_row = 0 }
+            else if (start_row >= this.data.length) { start_row = this.data.length - 1 }
+        }
+        
+        for (let i = Number(start_row); i < this.data.length; i++) {
             let new_row = func(this.CreateRowCopy(this.data[i]), i, this.GetRowRange(i)!)
             if (new_row === 'break') { break }
             else if (typeof new_row !== 'string' && new_row != null) { this.WriteRow(i, new_row) }

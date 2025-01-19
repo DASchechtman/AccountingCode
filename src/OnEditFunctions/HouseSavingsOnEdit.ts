@@ -12,32 +12,35 @@ function __HSOE_GetSavingBucketRange(bucket: string, sheet: GoogleSheetTabs, sta
     let start_range = ''
     let end_range = ''
     let found_bucket = false
+    let start_of_bucket = 0
 
-    for (let i = start; i < sheet.NumberOfRows(); i++) {
-        const ROW = sheet.GetRow(i)
-        const DEPOSIT_AMOUNT = Number(ROW?.at(0))
+    sheet.ForEachRow((row, i) => {
+        
+        const DEPOSIT_AMOUNT = Number(row[0])
 
         const FOUND_END_OF_BUCKET = (
             found_bucket
             && isNaN(DEPOSIT_AMOUNT)
+            && found_bucket
         )
 
-        const FOUND_START_OF_BUCKET = ROW?.at(0) === bucket
+        const FOUND_START_OF_BUCKET = row[0] === bucket
 
-        if (FOUND_END_OF_BUCKET) {
-            end_range = `A${i}`
-            break
-        }
-        else if (FOUND_START_OF_BUCKET) {
+        if (FOUND_START_OF_BUCKET) {
             found_bucket = true
-            i++
+            start_of_bucket = i + 2
         }
-        else if (start_range === '' && found_bucket) {
+        else if (start_range === '' && found_bucket && start_of_bucket === i) {
             start_range = `A${i + 1}`
         }
-    }
+        else if (FOUND_END_OF_BUCKET && i > start_of_bucket) {
+            end_range = `A${i}`
+            return 'break'
+        }
 
-    if (found_bucket && end_range === '') {
+    }, start)
+
+    if (start_range !== '' && end_range === '') {
         end_range = `A${sheet.NumberOfRows()}`
     }
 
