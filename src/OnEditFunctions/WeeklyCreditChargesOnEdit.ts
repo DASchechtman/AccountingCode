@@ -48,21 +48,7 @@ function WeeklyCreditChargesOnEdit() {
     let in_month = 0
 
     const InPayPeriod = (check: string) => {
-        const TODAY = new Date()
-
-        let year = TODAY.getFullYear()
-        let month = TODAY.getMonth() - 1
-
-        if (month < 0) {
-            month = 11
-            year -= 1
-        }
-
-        const FROM_DATE = new Date(`${month + 1}/28/${year}`)
-        const TO_DATE = new Date(`${TODAY.getMonth() + 1}/27/${TODAY.getFullYear()}`)
-        const CHECK_DATE = new Date(check)
-
-        return CHECK_DATE >= FROM_DATE && CHECK_DATE <= TO_DATE
+        return __Util_DateInCurrentPayPeriod(check)
     }
 
 
