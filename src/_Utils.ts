@@ -160,7 +160,7 @@ function __Util_CompareDates(date1: Date | string, date2: Date | string) {
 }
 
 function __Util_CacheSheets() {
-  __CacheTab(ONE_WEEK_LOANS_TAB_NAME)
+  __CacheTab(WEEKLY_CREDIT_CHARGES_TAB_NAME)
   __CacheTab(MULTI_WEEK_LOANS_TAB_NAME)
 }
 
@@ -206,94 +206,8 @@ function __Util_GetDateFromDateHeader(date_header: string) {
   return ""
 }
 
-function __Util_ComputeTotal_Archived() {
-  const TAB_NAME = "One Week Loans";
-  const SHEET = new GoogleSheetTabs(TAB_NAME);
-  const FORMULA_INTERPRETER = new FormulaInterpreter(SHEET);
-
-  const PURCHASE_COL_HEADER = "Purchase Location";
-  const DUE_DATE_COL_HEADER = "Due Date";
-  const AMOUNT_COL_HEADER = "Amount";
-  const TOTAL_COL_HEADER = "Total";
-  const PURCHASE_DATE_COL_HEADER = "Purchase Date";
-
-  const COLS = [
-    SHEET.GetCol(PURCHASE_COL_HEADER),
-    SHEET.GetCol(DUE_DATE_COL_HEADER),
-    SHEET.GetCol(AMOUNT_COL_HEADER),
-    SHEET.GetCol(TOTAL_COL_HEADER),
-    SHEET.GetCol(PURCHASE_DATE_COL_HEADER)
-  ]
-
-  if (!__Util_CheckAllAreNotUndefined(COLS)) {
-    COLS
-    return;
-  }
-
-  const [
-    PURCHASE_LOCATION_INDEX,
-    DUE_DATE_INDEX,
-    AMOUNT_INDEX,
-    TOTAL_INDEX,
-    PURCHASE_DATE_INDEX
-  ] = COLS
-
-  let total = 0;
-  let last_amt = 0
-  let last_recorded_date = "";
-
-  for (let i = 1; i < SHEET.NumberOfRows(); i++) {
-    const AMOUNT_VAL = typeof AMOUNT_INDEX[i] === 'string' ? FORMULA_INTERPRETER.ParseInput(AMOUNT_INDEX[i] as string) : AMOUNT_INDEX[i]
-    const PURCHASE_LOCATION = String(PURCHASE_LOCATION_INDEX[i]);
-    const DUE_DATE = String(DUE_DATE_INDEX[i])
-    const AMOUNT = typeof AMOUNT_VAL === "number" ? AMOUNT_VAL : -1;
-
-    if (PURCHASE_LOCATION.includes(PURCHASE_HEADER)) {
-      continue;
-    }
-
-    if (DUE_DATE === "" || AMOUNT === -1 || PURCHASE_LOCATION === "") {
-      TOTAL_INDEX[i] = "";
-      continue;
-    }
-
-    if (i + 1 === SHEET.NumberOfRows()) {
-      if (last_recorded_date !== DUE_DATE) {
-        TOTAL_INDEX[last_amt] = __Util_AddToFixed(total, 0, Math.ceil)
-        TOTAL_INDEX[i] = AMOUNT
-      }
-      else {
-        TOTAL_INDEX[i] = __Util_AddToFixed(total, AMOUNT, Math.ceil)
-      }
-    }
-    else if (last_recorded_date === "" || last_recorded_date !== DUE_DATE) {
-      if (last_recorded_date !== "") {
-        TOTAL_INDEX[last_amt] = __Util_AddToFixed(total, 0, Math.ceil)
-      }
-      last_recorded_date = DUE_DATE;
-      total = Math.ceil(AMOUNT);
-      last_amt = i
-      TOTAL_INDEX[i] = ""
-    }
-    else {
-      total += Math.ceil(AMOUNT);
-      last_amt = i
-      TOTAL_INDEX[i] = ""
-    }
-
-    PURCHASE_DATE_INDEX[i] = __Util_GetDateWhenCellEmpty(PURCHASE_DATE_INDEX[i]);
-  }
-
-  SHEET.WriteCol(PURCHASE_COL_HEADER, PURCHASE_LOCATION_INDEX)
-  SHEET.WriteCol(DUE_DATE_COL_HEADER, DUE_DATE_INDEX)
-  SHEET.WriteCol(AMOUNT_COL_HEADER, AMOUNT_INDEX)
-  SHEET.WriteCol(TOTAL_COL_HEADER, TOTAL_INDEX.map(x => typeof x === "number" ? __Util_AddToFixed(x, 0, Math.ceil) : x))
-  SHEET.WriteCol(PURCHASE_DATE_COL_HEADER, PURCHASE_DATE_INDEX)
-  SHEET.SaveToTab();
-}
-
 function __Util_ComputeTotal() {
-  const ONE_WEEK_LOAN_SHEET = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME)
+  const ONE_WEEK_LOAN_SHEET = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
   const ONE_WEEK_INTERPRETER = new FormulaInterpreter(ONE_WEEK_LOAN_SHEET)
 
   const PURCHASE_LOC_COL_INDEX = ONE_WEEK_LOAN_SHEET.GetHeaderIndex("Purchase Location")
@@ -406,7 +320,7 @@ function __Util_ComputeTotal() {
 }
 
 function __Util_GroupAndHighlightOneWeekLoans(should_shade_red: boolean = true) {
-  const SHEET = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME)
+  const SHEET = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
   const CUR_DATE = new Date()
   const PURCHASE_LOCATION_INDEX = SHEET.GetHeaderIndex("Purchase Location")
   const LIGHT_RED_SHADES = ["#FF7F7F", "#FF9F9F"]
@@ -455,7 +369,7 @@ function __Util_GroupAndHighlightOneWeekLoans(should_shade_red: boolean = true) 
 }
 
 function __Util_CreateHeadersForOneWeekLoans(date_header: string, tab_name: string) {
-  const TAB = new GoogleSheetTabs(ONE_WEEK_LOANS_TAB_NAME)
+  const TAB = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
   const DATE_HEADER_INDEX = TAB.GetHeaderIndex(date_header)
   const PURCHASE_LOCATION_INDEX = TAB.GetHeaderIndex("Purchase Location")
   const GROUPS = new Map<string, DataArray>()
