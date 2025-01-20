@@ -23,5 +23,5 @@ function onOpen() {
 
 function onDailyTrigger() {
   GroupAndCollapseBills()
-  ComputeTotalMonthly()
+  //ComputeTotalMonthly()
 }
