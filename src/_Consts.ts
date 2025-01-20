@@ -30,7 +30,7 @@ const PURCHASE_HEADER = "Purchases for"
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 const PAYMENT_SCHEDULE = ["Weekly", "Bi-Weekly", "Semi-Monthly", "Monthly"]
 
-const ONE_WEEK_LOANS_TAB_NAME = "One Week Loans"
+const WEEKLY_CREDIT_CHARGES_TAB_NAME = "One Week Loans"
 const HOUSE_BUDGET_DASHBOARD_TAB_NAME = "Household Budget Dashboard"
 const MULTI_WEEK_LOANS_TAB_NAME = "Multi Week Loans"
 const PERSONAL_SPEND_TRACKER_TAB_NAME = "Personal Spend Tracker"
