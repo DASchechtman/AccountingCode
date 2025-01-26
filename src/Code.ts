@@ -18,10 +18,12 @@ function onOpen() {
     .addItem("Group One Week Loans", "GroupOneWeekLoans")
     .addItem("Break Down Repayments", "BreakDownRepayment")
     .addItem("Tally Personal Ledger Expenses", "TallyPersonalLedgerExpenses")
+    .addItem("Create Repay Reminders", "RepayReminder")
     .addToUi();
 }
 
 function onDailyTrigger() {
   GroupAndCollapseBills()
+  RepayReminder()
   //ComputeTotalMonthly()
 }
