@@ -372,21 +372,42 @@ function __Util_CreateHeadersForOneWeekLoans(date_header: string, tab_name: stri
   const TAB = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
   const DATE_HEADER_INDEX = TAB.GetHeaderIndex(date_header)
   const PURCHASE_LOCATION_INDEX = TAB.GetHeaderIndex("Purchase Location")
+  const TIPS_INDEX = TAB.GetHeaderIndex("Tips")
   const GROUPS = new Map<string, DataArray>()
   const HEADER_KEY = "HEADERS"
 
   GROUPS.set(HEADER_KEY, [TAB.GetRow(0)!])
+
+  const CacheTipValue = (date: string, val: any) => {
+    PropertiesService.getDocumentProperties().setProperty(`TIPS - ${date}`, String(val))
+  }
+
+  const GetTipValue = (date: string) => {
+    const TIP = PropertiesService.getDocumentProperties().getProperty(`TIPS - ${date}`)
+    PropertiesService.getDocumentProperties().deleteProperty(`TIPS - ${date}`)
+    if (TIP == null) { return "" }
+    return TIP
+  }
 
   TAB.ForEachRow((row, i) => {
     if (i === 0) { return 'continue' }
     const ROW = row
 
     const DATE = String(ROW[DATE_HEADER_INDEX])
-    if (DATE === "") { return 'continue' }
+    if (String(row[PURCHASE_LOCATION_INDEX]).includes(PURCHASE_HEADER)) {
+      const HEADER_DATE = __Util_GetDateFromDateHeader(String(row[PURCHASE_LOCATION_INDEX]))
+      CacheTipValue(HEADER_DATE, row[TIPS_INDEX])
+    }
+    
+    if (DATE === "") { 
+      return 'continue' 
+    }
 
     if (!GROUPS.has(DATE)) {
       GROUPS.set(DATE, [])
     }
+
+    
 
     GROUPS.get(DATE)!.push(ROW)
   })
@@ -398,6 +419,9 @@ function __Util_CreateHeadersForOneWeekLoans(date_header: string, tab_name: stri
     for (let i = 0; i < len; i++) {
       if (i === PURCHASE_LOCATION_INDEX) {
         HEADER.push(`${PURCHASE_HEADER} ${date}`)
+      }
+      else if (i === TIPS_INDEX) {
+        HEADER.push(GetTipValue(date))
       }
       else {
         HEADER.push("")
