@@ -20,6 +20,10 @@ function onOpen() {
     .addItem("Tally Personal Ledger Expenses", "TallyPersonalLedgerExpenses")
     .addItem("Create Repay Reminders", "RepayReminder")
     .addToUi();
+  
+  UI.createMenu("Debug")
+    .addItem("Test Daily Trigger", "onDailyTrigger")
+    .addToUi()
 }
 
 function onDailyTrigger() {
