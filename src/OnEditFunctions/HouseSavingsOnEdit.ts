@@ -14,13 +14,18 @@ function __HSOE_GetSavingBucketRange(bucket: string, sheet: GoogleSheetTabs, sta
     let found_bucket = false
     let start_of_bucket = 0
 
+    const IsNotANumber = (val: any)=> {
+        const IS_A_NUM = !isNaN(Number(val))
+        const IS_TICKER_NUM = String(val).startsWith("=GOOGLEFINANCE")
+
+        return !IS_A_NUM && !IS_TICKER_NUM
+    } 
+
     sheet.ForEachRow((row, i) => {
-        
-        const DEPOSIT_AMOUNT = Number(row[0])
 
         const FOUND_END_OF_BUCKET = (
             found_bucket
-            && isNaN(DEPOSIT_AMOUNT)
+            && IsNotANumber(row[0])
             && found_bucket
         )
 
