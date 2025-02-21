@@ -65,9 +65,10 @@ class GoogleSheetTabs {
     private tab: Tab
     private headers: Map<string, number>
     private data: DataArray
+    private subrange?: string
     private readonly COPY_MAP: Map<unknown[], number>
 
-    constructor(tab: Tab | string) {
+    constructor(tab: Tab | string, sub_range_str?: string) {
         if (typeof tab === "string") {
             const SHEET_TAB = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tab)
             if (SHEET_TAB === null) { throw new Error(`Error: Tab "${tab}" does not exist.`) }
@@ -76,7 +77,8 @@ class GoogleSheetTabs {
 
         this.tab = tab
         this.data = []
-        this.InitSheetData()
+        this.subrange = sub_range_str
+        this.InitSheetData(sub_range_str)
         this.COPY_MAP = new Map()
 
         const HEADERS = this.data[0]
@@ -273,7 +275,15 @@ class GoogleSheetTabs {
 
     public SaveToTab() {
         this.SetAllRowsToSameLength()
-        const WRITE_RANGE = this.tab.getRange(1, 1, this.data.length, this.data[0].length)
+        let WRITE_RANGE = this.tab.getRange(1, 1, this.data.length, this.data[0].length)
+        if (typeof this.subrange === 'string') {
+            try {
+                WRITE_RANGE = this.tab.getRange(this.subrange)
+            }
+            catch {
+                throw new Error(`Cannot write to invalid range "${this.subrange}"`)
+            }
+        }
         WRITE_RANGE.setValues(this.data)
     }
 
@@ -341,14 +351,25 @@ class GoogleSheetTabs {
         return copy
     }
 
-    private InitSheetData() {
-        const RANGE_DATA = this.tab.getDataRange().getValues().map(row => row.map(__Util_ConvertToStrOrNumOrBool))
+    private InitSheetData(range_str?: string) {
+        let range_data = this.tab.getDataRange().getValues().map(row => row.map(__Util_ConvertToStrOrNumOrBool))
         this.data = this.tab.getDataRange().getFormulas()
 
-        for (let row = 0; row < RANGE_DATA.length; row++) {
-            for (let col = 0; col < RANGE_DATA[row].length; col++) {
+        if (typeof range_str === 'string') {
+            try {
+                const SUB_RANGE = this.tab.getRange(range_str)
+                range_data = SUB_RANGE.getValues().map(row => row.map(__Util_ConvertToStrOrNumOrBool))
+                this.data = SUB_RANGE.getFormulas()
+            } catch {
+                throw new Error("Sub-range is not valid")
+            }
+        }
+        
+
+        for (let row = 0; row < range_data.length; row++) {
+            for (let col = 0; col < range_data[row].length; col++) {
                 if (this.data[row][col] !== "") { continue }
-                this.data[row][col] = RANGE_DATA[row][col]
+                this.data[row][col] = range_data[row][col]
             }
         }
 
