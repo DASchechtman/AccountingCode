@@ -1,12 +1,8 @@
 
 function __MSU_FindOpenStat(html: string) {
     const DATA_KEY = "data-value="
-
     let i = html.indexOf('title="Open"')
-    if (i < 0) { return i }
-
     i = html.indexOf(DATA_KEY, i)
-    if (i < 0) { return i }
 
     let digits = new Array<string>()
     for (let j = i + DATA_KEY.length + 1; j < html.length; j++) {
@@ -19,18 +15,12 @@ function __MSU_FindOpenStat(html: string) {
         }
     }
 
-    const RET = Number(digits.join(''))
-
-    if (isNaN(RET)) { return -1 }
-    return RET
+    return Number(digits.join(''))
 }
 
 function __MSU_FindCurrentPPSStat(html: string) {
     const DATA_KEY = 'data-testid="qsp-price"'
-    
     let i = html.indexOf(DATA_KEY)
-    if (i < 0) { return i }
-
     let found_digits = false
     let digits = new Array<string>()
 
@@ -53,30 +43,16 @@ function __MSU_FindCurrentPPSStat(html: string) {
 
     }
 
-    const RET = Number(digits.join(''))
-
-    if (isNaN(RET)) { return -1 }
-    return RET
+    return Number(digits.join(''))
 }
 
 function __MSU_YahooFinance(ticker: string) {
     const url = `https://finance.yahoo.com/quote/${ticker}?p=${ticker}`
-    const finance_data = [-1, -1]
-    try {
-        const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true })
-        const contentText = res.getContentText()
-        const open = __MSU_FindOpenStat(contentText)
-        const current = __MSU_FindCurrentPPSStat(contentText)
-
-        finance_data[0] = open
-        finance_data[1] = current
-    }
-    catch {
-        finance_data[0] = -1
-        finance_data[1] = -1
-    }
-
-    return finance_data
+    const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true })
+    const contentText = res.getContentText()
+    const open = __MSU_FindOpenStat(contentText)
+    const current = __MSU_FindCurrentPPSStat(contentText)
+    return [open, current]
 }
 
 function StockUpdates() {
@@ -128,9 +104,6 @@ function StockUpdates() {
         }
 
         const [open, current] = __MSU_YahooFinance(String(row[TICKER_INDEX]))
-
-        if (open < 0 || current < 0) { return 'continue' }
-
         row[PRICE_PER_SHARE_INDEX] = current
         row[TODAY_OPEN_INDEX] = open
 
