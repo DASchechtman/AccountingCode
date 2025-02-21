@@ -31,3 +31,7 @@ function onDailyTrigger() {
   RepayReminder()
   //ComputeTotalMonthly()
 }
+
+function onMinutelyTrigger() {
+  StockUpdates()
+}
