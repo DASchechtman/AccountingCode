@@ -1,4 +1,3 @@
-
 function __MSU_FindOpenStat(html: string) {
     const DATA_KEY = "data-value="
 
