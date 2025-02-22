@@ -81,7 +81,7 @@ class GoogleSheetTabs {
         this.InitSheetData(sub_range_str)
         this.COPY_MAP = new Map()
 
-        const HEADERS = this.data[0]
+        const HEADERS = this.data.length > 0 ? this.data[0] : []
 
         this.headers = new Map<string, number>()
         for (let i = 0; i < HEADERS.length; i++) {
