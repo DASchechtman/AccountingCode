@@ -34,30 +34,9 @@ class __DCHSD_DynamicFormulaChain {
     }
 }
 
-function __DCHSD_IsMarketHoliday(date: Date) {
-    const MARKET_HOLIDAYS = [
-        "New Year's Day",
-        "Martin Luther King Jr. Day",
-        "Presidents' Day",
-        "Good Friday",
-        "Memorial Day",
-        "Juneteenth National Independence Day",
-        "Independence Day",
-        "Labor Day",
-        "Thanksgiving Day",
-        "Christmas Day",
-    ].map(e => e.toLowerCase())
-
-    const HOLIDAYS = CalendarApp.getCalendarsByName("Holidays in United States")
-    const CHRISTIAN_HOLIDAYS = CalendarApp.getCalendarsByName("Christian Holidays")
-    const TODAYS_EVENTS = [...HOLIDAYS[0].getEventsForDay(date), ...CHRISTIAN_HOLIDAYS[0].getEventsForDay(date)]
-        .map(e => e.getTitle().toLowerCase())
-    return TODAYS_EVENTS.some(e => MARKET_HOLIDAYS.includes(e))
-}
-
 function __DCHSD_IsNotOnMarketDay() {
     const TODAY = new Date()
-    return TODAY.getDay() === 0 || TODAY.getDay() === 6 || __DCHSD_IsMarketHoliday(TODAY)
+    return TODAY.getDay() === 0 || TODAY.getDay() === 6 || __Util_IsMarketHoliday(TODAY)
 }
 
 function __DCHSD_GetInvestmentData() {
@@ -74,7 +53,8 @@ function __DCHSD_GetInvestmentData() {
 
     const RoundDecTo = (n: number, places: number) => {
         const ROUND_PLACE = Math.pow(10, places)
-        return Math.round(n * ROUND_PLACE) / ROUND_PLACE
+        const RET = Math.round(n * ROUND_PLACE) / ROUND_PLACE
+        return isNaN(RET) ? 0 : RET
     }
 
     const ReturnOnInvestment = (from: number, to: number) => {

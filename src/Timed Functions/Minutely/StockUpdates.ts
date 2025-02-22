@@ -87,7 +87,7 @@ function __MSU_IsOutsideTradingHours() {
     const AFTER_HOURS = TODAY.getHours() >= 18
     const ON_WEEKEND = TODAY.getDay() === 0 || TODAY.getDay() === 6
 
-    return BEFORE_HOURS || AFTER_HOURS || ON_WEEKEND
+    return BEFORE_HOURS || AFTER_HOURS || ON_WEEKEND || __Util_IsMarketHoliday(TODAY)
 }
 
 function __MSU_ShutdownUpdateBtnClicked() {
@@ -146,7 +146,7 @@ function StockUpdates() {
             row[TODAYS_RETURN_DOLLAR_INDEX] = `=IFERROR(DOLLAR(${ToCellStr(TODAY_OPEN_INDEX, i)}*${ToCellStr(TODAYS_RETURN_INDEX, i)}), 0)`
         }
 
-        if (!__MSU_IsOutsideTradingHours()) {
+        if (!__MSU_IsOutsideTradingHours() || row[PRICE_PER_SHARE_INDEX] === '') {
             const [open, current] = __MSU_YahooFinance(String(row[TICKER_INDEX]))
 
             if (open < 0 || current < 0) { return 'continue' }

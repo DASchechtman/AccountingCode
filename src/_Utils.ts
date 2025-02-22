@@ -486,3 +486,24 @@ function __Util_DateInCurrentPayPeriod(compare_date: string) {
 
   return SAME_MONTH && SAME_YEAR
 }
+
+function __Util_IsMarketHoliday(date: Date) {
+  const MARKET_HOLIDAYS = [
+      "New Year's Day",
+      "Martin Luther King Jr. Day",
+      "Presidents' Day",
+      "Good Friday",
+      "Memorial Day",
+      "Juneteenth National Independence Day",
+      "Independence Day",
+      "Labor Day",
+      "Thanksgiving Day",
+      "Christmas Day",
+  ].map(e => e.toLowerCase())
+
+  const HOLIDAYS = CalendarApp.getCalendarsByName("Holidays in United States")
+  const CHRISTIAN_HOLIDAYS = CalendarApp.getCalendarsByName("Christian Holidays")
+  const TODAYS_EVENTS = [...HOLIDAYS[0].getEventsForDay(date), ...CHRISTIAN_HOLIDAYS[0].getEventsForDay(date)]
+      .map(e => e.getTitle().toLowerCase())
+  return TODAYS_EVENTS.some(e => MARKET_HOLIDAYS.includes(e))
+}
