@@ -27,6 +27,7 @@ function onOpen() {
 }
 
 function onDailyTrigger() {
+  CollectHistoricalStockData()
   GroupAndCollapseBills()
   RepayReminder()
   //ComputeTotalMonthly()
