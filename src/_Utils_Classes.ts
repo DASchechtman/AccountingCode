@@ -92,7 +92,9 @@ class GoogleSheetTabs {
     }
 
     public GetHeaderIndex(header_name: string) {
-        return this.headers.get(header_name) === undefined ? -1 : this.headers.get(header_name)!
+        const HEADER_INDEX = this.headers.get(header_name)
+        if (HEADER_INDEX == null) { throw new Error(`${header_name} is not an existing header.`) }
+        return HEADER_INDEX
     }
 
     public GetHeaderNames() {
@@ -130,6 +132,14 @@ class GoogleSheetTabs {
             if (this.data[i] === undefined) { this.data[i] = new Array(LONGEST_ROW).fill("") }
             this.data[i][COL_INDEX] = col[i]
         }
+    }
+
+    public GetCell() {
+        return this.data[0][0]
+    }
+
+    public WriteCell(data: string | number | boolean) {
+        this.data[0][0] = data
     }
 
     public GetRow(row_index: number) {
@@ -354,6 +364,12 @@ class GoogleSheetTabs {
     private InitSheetData(range_str?: string) {
         let range_data = this.tab.getDataRange().getValues().map(row => row.map(__Util_ConvertToStrOrNumOrBool))
         this.data = this.tab.getDataRange().getFormulas()
+
+        const IS_EMPTY_SHEET = String(range_data).length === 0
+        if (IS_EMPTY_SHEET) {
+            this.data = []
+            return
+        }
 
         if (typeof range_str === 'string') {
             try {

@@ -40,3 +40,6 @@ const WEEKLY_PAYMENT_BREAK_DOWN_TAB_NAME = "One Week Loans Breakdown"
 const PERSONAL_LEDGER_TAB_NAME = "Personal Spend Ledger"
 const HOUSE_SAVINGS_TAB_NAME = "Household Savings"
 const FRIEND_FAMILY_LOANS_TAB_NAME = "Family/Friend Loans"
+const INVESTMENT_DATA_TAB_NAME = "Investment Data"
+
+const INVESTMENT_TRACKER_RANGE = "G2:Q11"
