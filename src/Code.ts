@@ -34,5 +34,5 @@ function onDailyTrigger() {
 }
 
 function onMinutelyTrigger() {
-  StockUpdates()
+  //StockUpdates()
 }

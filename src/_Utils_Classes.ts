@@ -371,9 +371,26 @@ class GoogleSheetTabs {
             return
         }
 
+        let start_col = 0
+        let start_row = 0
+
         if (typeof range_str === 'string') {
             try {
                 const SUB_RANGE = this.tab.getRange(range_str)
+                const CELLS = range_str.split(":")
+
+                const COL_LETTER = CELLS[0].match(/[a-zA-Z]+/)?.at(0)
+                const ROW = CELLS[0].match(/[0-9]+/)?.at(0)
+
+                if (COL_LETTER) {
+                    start_col = __Util_ColLetterToIndex(COL_LETTER)
+                }
+
+                if (ROW) {
+                    start_row = Number(ROW)
+                }
+
+               
                 range_data = SUB_RANGE.getValues().map(row => row.map(__Util_ConvertToStrOrNumOrBool))
                 this.data = SUB_RANGE.getFormulas()
             } catch {
@@ -384,8 +401,13 @@ class GoogleSheetTabs {
 
         for (let row = 0; row < range_data.length; row++) {
             for (let col = 0; col < range_data[row].length; col++) {
-                if (this.data[row][col] !== "") { continue }
-                this.data[row][col] = range_data[row][col]
+                if (this.data[row][col] !== "") {
+                    const CELL_RANGE = __Util_IndexToColLetter(col+start_col)
+                    const START = start_row === 0 ? 1 : start_row
+                    this.data[row][col] = this.tab.getRange(`${CELL_RANGE}${row + START}`).getValue()
+                } else {
+                    this.data[row][col] = range_data[row][col]
+                }
             }
         }
 
