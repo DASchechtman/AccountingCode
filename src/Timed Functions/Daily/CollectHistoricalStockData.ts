@@ -10,7 +10,7 @@ class __DCHSD_ChainNode {
 
     public toString(): string {
         let next_val = this.next_node ? this.next_node.toString() : 0
-        return `IF(EQ("${this.ticker}", '${HOUSE_SAVINGS_TAB_NAME}'!T9), ${this.value}, ${next_val})`
+        return `IF(EQ("${this.ticker}", '${HOUSE_SAVINGS_TAB_NAME}'!R10), ${this.value}, ${next_val})`
     }
 }
 
@@ -62,6 +62,10 @@ function __DCHSD_GetInvestmentData() {
         return RoundDecTo(FULL_PERCENTAGE, 2)
     }
 
+    const CreateAvgFormula = (items: number[]) => {
+        return `ROUND(AVERAGE(${items}), 2)`
+    }
+
     INVEST_TAB.ForEachRow(row => {
         const STOCK_RETURN = ReturnOnInvestment(
             Number(row[TODAYS_OPEN_INDEX]),
@@ -77,8 +81,8 @@ function __DCHSD_GetInvestmentData() {
 
     return {
         date: __Util_CreateDateString(new Date()),
-        avg_close: RoundDecTo((CLOSING_PRICES.reduce((p, c) => p + c, 0) / CLOSING_PRICES.length), 2),
-        avg_ret_rage: RoundDecTo((RETURNS_PER_INVESTMENT.reduce((p, c) => p + c, 0) / RETURNS_PER_INVESTMENT.length), 2),
+        avg_close: CreateAvgFormula(CLOSING_PRICES),
+        avg_ret_rage: CreateAvgFormula(RETURNS_PER_INVESTMENT),
         single_stocks: CLOSE_PRICE_CHAIN,
         single_return: RETURN_CHAIN
     }

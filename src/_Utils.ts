@@ -341,7 +341,7 @@ function __Util_GroupAndHighlightOneWeekLoans(should_shade_red: boolean = true) 
       const RANGE = TAB.getRange(RANGE_STR)
       let group
 
-      if (__Util_CompareDates(date, CUR_DATE)) {
+      if (true) {
         try {
           group = TAB.getRowGroup(last_date_header + 2, 1)
           group?.remove()
@@ -411,7 +411,7 @@ function __Util_CreateHeadersForOneWeekLoans(date_header: string, tab_name: stri
 
     GROUPS.get(DATE)!.push(ROW)
   })
-
+  TAB.MakeInternalCopy()
   TAB.EraseTab()
 
   const CreateDateHeader = (len: number, date: string) => {
@@ -446,6 +446,7 @@ function __Util_CreateHeadersForOneWeekLoans(date_header: string, tab_name: stri
     }
   }
 
+  TAB.RestoreFromInternalCopy()
   TAB.SaveToTab()
 }
 

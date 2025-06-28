@@ -7,7 +7,7 @@ function __DRR_CreateReminder(index: number, sheet: GoogleSheetTabs) {
     const AMOUNT_OWED_INDEX = index + 4
 
     sheet.ForEachRow((row, i)  => {
-        if (row[WHO_INDEX] === '') { return 'break' }
+        if (['ro', 'dan', ''].includes(String(row[WHO_INDEX]).toLowerCase())) { return 'break' }
 
         const WHO = row[WHO_INDEX]
         const AMT_OWED = row[AMOUNT_OWED_INDEX]
