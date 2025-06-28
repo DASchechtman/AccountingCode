@@ -61,12 +61,57 @@ class PayDay {
     }
 }
 
+class GoogleTabCell {
+    private original_value: DataArrayItem
+    private cur_value: DataArrayItem
+    private cell_written_to: boolean
+    private cell_formula: string
+
+    constructor(value: DataArrayItem, formula?: string) {
+        this.original_value = value
+        this.cur_value = value
+        this.cell_written_to = false
+
+        this.cell_formula = ""
+
+        if (formula && formula[0] === "=") {
+            this.cell_formula = formula
+        }
+        else if (typeof value === 'string' && value[0] === '=') {
+            this.cell_formula = value
+        }
+    }
+
+    public Write(value: DataArrayItem) {
+        this.cell_written_to = this.original_value !== value
+        this.cur_value = value
+    }
+
+    public Read() {
+        return !this.cell_written_to ? this.original_value : this.cur_value
+    }
+
+    public ReadCell() {
+        if (!this.cell_written_to) {
+            if (this.cell_formula !== "") {
+                return this.cell_formula
+            }
+            else {
+                return this.original_value
+            }
+        }
+
+        return this.cur_value
+    }
+}
+
 class GoogleSheetTabs {
     private tab: Tab
     private headers: Map<string, number>
-    private data: DataArray
+    private data: Array<Array<GoogleTabCell>>
     private subrange?: string
-    private readonly COPY_MAP: Map<unknown[], number>
+    private copy_data: Array<Array<GoogleTabCell>>
+    private readonly COPY_MAP: Map<DataArrayEntry, number>
 
     constructor(tab: Tab | string, sub_range_str?: string) {
         if (typeof tab === "string") {
@@ -77,6 +122,7 @@ class GoogleSheetTabs {
 
         this.tab = tab
         this.data = []
+        this.copy_data = []
         this.subrange = sub_range_str
         this.InitSheetData(sub_range_str)
         this.COPY_MAP = new Map()
@@ -85,7 +131,7 @@ class GoogleSheetTabs {
 
         this.headers = new Map<string, number>()
         for (let i = 0; i < HEADERS.length; i++) {
-            const HEADER = HEADERS[i]
+            const HEADER = HEADERS[i].Read()
             if (typeof HEADER !== "string") { continue }
             this.headers.set(HEADER, i)
         }
@@ -101,24 +147,25 @@ class GoogleSheetTabs {
         return Array.from(this.headers.keys())
     }
 
-    public GetCol(header_name: string) {
+    public GetCol(header_name: string): DataArrayEntry | undefined {
         const COL: DataArrayEntry = []
         const COL_INDEX = this.headers.get(header_name)
 
         if (COL_INDEX === undefined) { return undefined }
 
         for (let i = 0; i < this.data.length; i++) {
-            COL.push(this.data[i][COL_INDEX])
+            let x = this.data[i][COL_INDEX].Read()
+            COL.push(x)
         }
 
         return COL
     }
 
-    public GetColByIndex(col_index: number) {
+    public GetColByIndex(col_index: number): DataArrayEntry | undefined {
         if (col_index < 0 || col_index >= this.data[0].length) { return undefined }
         const COL: DataArrayEntry = []
         for (let i = 0; i < this.data.length; i++) {
-            COL.push(this.data[i][col_index])
+            COL.push(this.data[i][col_index].Read())
         }
         return COL
     }
@@ -130,54 +177,64 @@ class GoogleSheetTabs {
 
         for (let i = col.length - 1; i >= 0; i--) {
             if (this.data[i] === undefined) { this.data[i] = new Array(LONGEST_ROW).fill("") }
-            this.data[i][COL_INDEX] = col[i]
+            this.data[i][COL_INDEX].Write(col[i])
         }
     }
 
     public GetCell() {
-        return this.data[0][0]
+        return this.data[0][0].Read()
     }
 
     public WriteCell(data: string | number | boolean) {
-        this.data[0][0] = data
+        this.data[0][0].Write(data)
     }
 
-    public GetRow(row_index: number) {
+    public GetRow(row_index: number): DataArrayEntry | undefined {
         if (row_index < 0 || row_index >= this.data.length) { return undefined }
-        return this.CreateRecordedRowCopy(this.data[row_index], row_index)
+        return this.MapToRow(this.ConvertToDataArray(row_index), row_index)
     }
 
     public WriteRow(row_index: number, row: DataArrayEntry) {
         if (row_index < 0 || row_index >= this.data.length) { return }
-        this.data[row_index] = this.CreateRowCopy(row)
+        for (let i = 0; i < row.length; i++) {
+            if (i < this.data[row_index].length) {
+                this.data[row_index][i].Write(row[i])
+            }
+            else {
+                this.data[row_index].push(new GoogleTabCell(row[i]))
+            }
+        }
     }
 
     public OverWriteRow(row: DataArrayEntry) {
         if (!this.COPY_MAP.has(row)) { return false }
         const INDEX = this.COPY_MAP.get(row)!
-        this.data[INDEX] = this.CreateRowCopy(row)
+        this.WriteRow(INDEX, row)
         return true
     }
 
     public WriteRowAt(row_index: number, start: number, row: DataArrayEntry) {
         if (row_index < 0 || row_index >= this.data.length) { return }
         if (start < 0) { start = 0 }
-        while (start + row.length >= this.data[row_index].length) { this.data[row_index].push("") }
+        while (start + row.length >= this.data[row_index].length) { this.data[row_index].push(new GoogleTabCell("")) }
 
         for (let i = 0; i < row.length; i++) {
-            this.data[row_index][start + i] = row[i]
+            this.data[row_index][start + i].Write(row[i])
         }
     }
 
-    public AppendRow(row: DataArrayEntry, should_fill: boolean = false) {
-        row = this.CreateRecordedRowCopy(row, this.data.length)
-        this.data.push(row)
+    public AppendRow(row: DataArrayEntry, should_fill: boolean = false): DataArrayEntry {
+        row = this.MapToRow(row, this.data.length)
+        
         if (should_fill) {
             const LONGEST_ROW = this.FindLongestRowLength()
             while (row.length < LONGEST_ROW) {
                 row.push("")
             }
         }
+
+        this.data.push(row.map(i => new GoogleTabCell(i)))
+
         return row
     }
 
@@ -187,10 +244,10 @@ class GoogleSheetTabs {
     } = {}) {
         if (row_index < 0) { row_index = 0 }
         if (!AlterRow) {
-            row = this.CreateRecordedRowCopy(row, row_index)
+            row = this.MapToRow(row, row_index)
         }
         else {
-            row = this.CreateRecordedRowCopy(AlterRow(row), row_index)
+            row = this.MapToRow(AlterRow(row), row_index)
         }
 
         const LONGEST_ROW = this.FindLongestRowLength()
@@ -199,42 +256,31 @@ class GoogleSheetTabs {
         }
 
         if (row_index >= this.data.length) { return this.AppendRow(row) }
-        this.data.splice(row_index, 0, row)
+        this.data.splice(row_index, 0, row.map(i => new GoogleTabCell(i)))
 
         return row
     }
 
-    public AppendToRow(row_index: number, ...row: DataArrayElement[]) {
-        if (row_index < 0 || row_index >= this.data.length) { return undefined }
-        this.data[row_index].push(...row.map(__Util_ConvertToStrOrNumOrBool))
-        return this.CreateRecordedRowCopy(this.data[row_index], row_index)
-    }
-
     public FindRow(func: (row: DataArrayEntry) => boolean) {
-        let row_index = this.data.findIndex(func)
+        let row_index = this.data.findIndex(i => func(i.map(c => c.Read())))
         if (row_index === -1) { return undefined }
-        return this.CreateRecordedRowCopy(this.data[row_index], row_index)
-    }
-
-    public IndexOfRow(row?: DataArrayEntry | ((row: DataArrayEntry) => boolean), index_from?: number) {
-        let search_row = row
-        if (typeof search_row === "function") { search_row = this.FindRow(search_row) }
-        if (search_row === undefined) { return -1 }
-        return this.data.indexOf(search_row, index_from)
+        return this.ConvertAndMapToDataArray(row_index)
     }
 
     public FilterRows(func: (row: DataArrayEntry) => boolean) {
         let x = this.data.map((row, i) => {
-            if (func(row)) {
-                return this.CreateRecordedRowCopy(row, i)
+            if (func(row.map(i => i.Read()))) {
+                return this.ConvertAndMapToDataArray(i)
             }
             return null
         })
+
         const FILTERED: DataArray = []
         for (let el of x) {
             if (el == null) { continue }
             FILTERED.push(el)
         }
+
         return FILTERED
     }
 
@@ -273,9 +319,13 @@ class GoogleSheetTabs {
         }
         
         for (let i = Number(start_row); i < this.data.length; i++) {
-            let new_row = func(this.CreateRowCopy(this.data[i]), i, this.GetRowRange(i)!)
-            if (new_row === 'break') { break }
-            else if (typeof new_row !== 'string' && new_row != null) { this.WriteRow(i, new_row) }
+            let new_row = func(this.ConvertToDataArray(i), i, this.GetRowRange(i)!)
+            if (new_row === 'break') { 
+                break 
+            }
+            else if (typeof new_row !== 'string' && new_row != null) { 
+                this.WriteRow(i, new_row) 
+            }
         }
     }
 
@@ -294,37 +344,34 @@ class GoogleSheetTabs {
                 throw new Error(`Cannot write to invalid range "${this.subrange}"`)
             }
         }
-        WRITE_RANGE.setValues(this.data)
+        WRITE_RANGE.setValues(this.data.map(row => row.map(cell => __Util_ConvertToStrOrNumOrBool(cell.ReadCell()))))
     }
 
     public GetTab() {
         return this.tab
     }
 
-    public CopyTo(tab: GoogleSheetTabs) {
-        for (let i = 0; i < this.data.length; i++) {
-            if (i >= tab.NumberOfRows()) {
-                tab.AppendRow(this.data[i])
+    public ClearTab() {
+        for (let row of this.data) {
+            for (let col of row) {
+                col.Write("")
             }
-            else {
-                tab.WriteRow(i, this.data[i])
-            }
-
-            const ROW_RANGE = this.GetRowRange(i)
-            const TAB_ROW_RANGE = tab.GetRowRange(i)
-            if (ROW_RANGE === undefined || TAB_ROW_RANGE === undefined) { continue }
-            ROW_RANGE.copyTo(TAB_ROW_RANGE, SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false)
-        }
-
-        for (let i = 0; i < tab.data[0].length; i++) {
-            tab.GetTab().autoResizeColumn(i + 1)
-            const width = tab.GetTab().getColumnWidth(i + 1)
-            tab.GetTab().setColumnWidth(i + 1, width + 25)
         }
     }
 
-    public ClearTab() {
-        this.data.map(row => row.fill(""))
+    public MakeInternalCopy() {
+        this.copy_data = this.data
+    }
+
+    public RestoreFromInternalCopy() {
+        for (let i = 0; i < this.copy_data.length; i++) {
+            if (i >= this.data.length) {
+                this.data.push(this.copy_data[i])
+            }
+            else {
+                this.data[i] = this.copy_data[i]
+            }
+        }
     }
 
     public EraseTab() {
@@ -341,29 +388,34 @@ class GoogleSheetTabs {
         return longest_row
     }
 
+    private MapToRow(row: DataArrayEntry, index: number): DataArrayEntry {
+        this.COPY_MAP.set(row, index)
+        return row
+    }
+
+    private ConvertToDataArray(i: number): DataArrayEntry {
+        if (i < 0 || i >= this.data.length) { return [] }
+        return this.data[i].map(i => i.Read())
+    }
+
+    private ConvertAndMapToDataArray(i: number): DataArrayEntry {
+        return this.MapToRow(this.ConvertToDataArray(i), i)
+    }
+
     private SetAllRowsToSameLength() {
         const LONGEST_ROW = this.FindLongestRowLength()
         for (let i = 0; i < this.data.length; i++) {
             while (this.data[i].length < LONGEST_ROW) {
-                this.data[i].push("")
+                this.data[i].push(new GoogleTabCell(""))
             }
-            this.data[i] = this.data[i].map(__Util_ConvertToStrOrNumOrBool)
         }
     }
 
-    private CreateRowCopy(row: any[]) {
-        return [...row].map(__Util_ConvertToStrOrNumOrBool)
-    }
-
-    private CreateRecordedRowCopy(row: any[], index: number) {
-        const copy = this.CreateRowCopy(row)
-        this.COPY_MAP.set(copy, index)
-        return copy
-    }
+    
 
     private InitSheetData(range_str?: string) {
         let range_data = this.tab.getDataRange().getValues().map(row => row.map(__Util_ConvertToStrOrNumOrBool))
-        this.data = this.tab.getDataRange().getFormulas()
+        let formula_range = this.tab.getDataRange().getFormulas()
 
         const IS_EMPTY_SHEET = String(range_data).length === 0
         if (IS_EMPTY_SHEET) {
@@ -392,7 +444,7 @@ class GoogleSheetTabs {
 
                
                 range_data = SUB_RANGE.getValues().map(row => row.map(__Util_ConvertToStrOrNumOrBool))
-                this.data = SUB_RANGE.getFormulas()
+                formula_range = SUB_RANGE.getFormulas()
             } catch {
                 throw new Error("Sub-range is not valid")
             }
@@ -400,15 +452,20 @@ class GoogleSheetTabs {
         
 
         for (let row = 0; row < range_data.length; row++) {
+            const CELLS = new Array<GoogleTabCell>()
+
             for (let col = 0; col < range_data[row].length; col++) {
-                if (this.data[row][col] !== "") {
+                if (formula_range[row][col] !== "") {
                     const CELL_RANGE = __Util_IndexToColLetter(col+start_col)
                     const START = start_row === 0 ? 1 : start_row
-                    this.data[row][col] = this.tab.getRange(`${CELL_RANGE}${row + START}`).getValue()
+                    const VALUE = this.tab.getRange(`${CELL_RANGE}${row + START}`).getValue()
+                    CELLS.push(new GoogleTabCell(VALUE, formula_range[row][col]))
                 } else {
-                    this.data[row][col] = range_data[row][col]
+                   CELLS.push(new GoogleTabCell(range_data[row][col]))
                 }
             }
+
+            this.data.push(CELLS)
         }
 
     }

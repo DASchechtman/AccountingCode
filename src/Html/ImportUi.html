@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 10px;
+        text-align: left;
+      }
+      th {
+        background-color: #f4f4f4;
+        font-weight: bold;
+      }
+      tr:nth-child(even) {
+        background-color: #f9f9f9;
+      }
+
+      .hide {
+        visibility: hidden;
+      }
+
+      .loading-bar {
+        border: 8px solid #f3f3f3; /* Light grey */
+        border-top: 8px solid #3498db; /* Blue */
+        border-radius: 50%;
+        width: 80px; /* Adjust width */
+        height: 80px; /* Adjust height */
+        animation: spin 1s linear infinite;
+        position: absolute;
+        transform: translate(-50%, -50%);
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="import">
+      <h2>Upload an HTML File</h2>
+      <input type="file" id="fileInput" accept=".html" />
+      <button onclick="readFile()">Upload</button>
+
+      <h3>File Transactions:</h3>
+      <div id="preview"></div>
+      <button id="process" class="hide" onclick="Process()">
+        Import into Sheet
+      </button>
+    </div>
+
+    <div id="load-wheel" class="hide">
+      <div class="loading-bar"></div>
+    </div>
+
+    <div id="success" class="hide">
+      <h2>Transactions successfully imported!</h2>
+    </div>
+    <div id="fail" class="hide">
+      <h2>Transactions could not be loaded!</h2>
+    </div>
+
+    <script>
+      let values_to_process = [];
+      function ParseHtml(html, start_key) {
+        let start = html.indexOf(start_key);
+        if (start < 0) {
+          return "";
+        }
+
+        let end = html.indexOf("</table>", start);
+        if (end < 0) {
+          return "";
+        }
+
+        console.log(start, end);
+
+        let search_start = start;
+        let vals = [];
+
+        while (true) {
+          const SEARCH_KEY = "data-values";
+          search_start = html.indexOf(SEARCH_KEY, search_start);
+          if (search_start < 0 || search_start > end) {
+            break;
+          }
+
+          let search_start_copy = search_start;
+          let str_list = [];
+          let found_quotes = false;
+          while (true) {
+            if (html[search_start_copy] == '"') {
+              if (!found_quotes) {
+                found_quotes = true;
+              } else {
+                console.log(str_list.join(""));
+                break;
+              }
+            } else if (found_quotes) {
+              str_list.push(html[search_start_copy]);
+            }
+            search_start_copy++;
+          }
+
+          vals.push(
+            str_list
+              .join("")
+              .split(",")
+              .filter((x) => x != "")
+          );
+          search_start += SEARCH_KEY.length;
+        }
+
+        return vals;
+      }
+      /**
+       * @param {string} html
+       * */
+      function ParseTransactions(html) {
+        let vals = [
+          ...ParseHtml(
+            html,
+            '<table id="PENDING-dataTableId-mds-diy-data-table"'
+          ),
+          ...ParseHtml(
+            html,
+            '<table id="ACTIVITY-dataTableId-mds-diy-data-table"'
+          ),
+        ];
+
+        let TABLE_ROWS = vals.map((row) => {
+          let td = row.map((x) => `<td>${x}</td>`);
+          return `<tr>${td.join("")}</tr>`;
+        });
+
+        let HTML = `<table><thead><tr><th>Date</th><th>Name</th><th>Amount</th></tr></thead><tbody>${TABLE_ROWS.join(
+          ""
+        )}</tbody></table>`;
+        document.getElementById("preview").innerHTML = HTML;
+        document.getElementById("process").className = "";
+        values_to_process = vals;
+      }
+
+      function readFile() {
+        var input = document.getElementById("fileInput");
+        if (input.files.length === 0) {
+          alert("Please select a file.");
+          return;
+        }
+
+        var file = input.files[0];
+        var reader = new FileReader();
+
+        reader.onload = function (event) {
+          ParseTransactions(event.target.result);
+        };
+
+        reader.readAsText(file);
+      }
+
+      function Process() {
+        values_to_process = values_to_process
+          .map((row) => {
+            return {
+              date: row[0],
+              name: row[1].replace("&#39;", "'"),
+              amt: Number(row[2].slice(1)),
+            };
+          })
+          .sort((a, b) => new Date(a.date) - new Date(b.date))
+          .filter((a) => a.amt > 0)
+
+        document.getElementById("import").remove();
+        document.getElementById("load-wheel").className = "";
+
+        google.script.run
+          .withSuccessHandler(Success)
+          .withFailureHandler(Fail)
+          .__ICH_AddToSheet(values_to_process);
+      }
+
+      function Success() {
+        document.getElementById("load-wheel").remove();
+        document.getElementById("success").className = "";
+      }
+
+      function Fail() {
+        document.getElementById("load-wheel").remove();
+        document.getElementById("fail").className = "";
+      }
+    </script>
+  </body>
+</html>
