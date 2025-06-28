@@ -4,7 +4,8 @@ type CheckPayOut = ({date, total_days, inc, pay_month}: PayOutParams) => boolean
 type Spreadsheet = GoogleAppsScript.Spreadsheet.Spreadsheet;
 type Tab = GoogleAppsScript.Spreadsheet.Sheet;
 type DataArray = Array<DataArrayEntry>;
-type DataArrayEntry = Array<string | number | boolean>;
+type DataArrayItem = string | number | boolean
+type DataArrayEntry = Array<DataArrayItem>;
 type DataArrayElement = string | number;
 type Some = {type: "Some", val: NonNullable<unknown>}
 type None = {type: "None"}
@@ -42,4 +43,4 @@ const HOUSE_SAVINGS_TAB_NAME = "Household Savings"
 const FRIEND_FAMILY_LOANS_TAB_NAME = "Family/Friend Loans"
 const INVESTMENT_DATA_TAB_NAME = "Investment Data"
 
-const INVESTMENT_TRACKER_RANGE = "G2:Q12"
+const INVESTMENT_TRACKER_RANGE = "G2:Q13"
