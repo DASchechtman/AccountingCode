@@ -40,10 +40,8 @@ function onOpen() {
 }
 
 function onDailyTrigger() {
-  CollectHistoricalStockData()
-  GroupAndCollapseBills()
-  RepayReminder()
-  //ComputeTotalMonthly()
+  __Cache_Utils_StoreOneWeekLoanCurrentMonthInfo()
+  GroupWeeklyCharges()
 }
 
 function onMinutelyTrigger() {
