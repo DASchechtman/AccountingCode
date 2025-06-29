@@ -34,7 +34,7 @@ function __SEFC_FindCharges() {
 
 function ScanEmailForCharges() {
     const CHARGES = __SEFC_FindCharges()
-    if (CHARGES.length === 0) { return }
+    if (CHARGES.length === 0) { return false }
 
     const SHEET = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
     const INSERT_DATA = new Array<{i: number, date: string}>()
@@ -74,4 +74,6 @@ function ScanEmailForCharges() {
     }
 
     SHEET.SaveToTab()
+
+    return true
 }
