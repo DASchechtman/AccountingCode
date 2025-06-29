@@ -49,3 +49,7 @@ function onDailyTrigger() {
 function onMinutelyTrigger() {
   //StockUpdates()
 }
+
+function onHourlyTrigger() {
+  ScanEmailForCharges()
+}
