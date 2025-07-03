@@ -43,6 +43,7 @@ function ScanEmailForCharges() {
 
     const PURCHASE_LOC_INDEX = SHEET.GetHeaderIndex("Purchase Location")
 
+
     SHEET.ForEachRow((row, i) => {
         const IS_HEADER = String(row[PURCHASE_LOC_INDEX]).startsWith(PURCHASE_HEADER)
 
