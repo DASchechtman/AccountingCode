@@ -24,9 +24,11 @@ function __ICH_CreateRowObject(insert_row: number) {
 
 function __ICH_RemoveAllGroups(sheet: GoogleSheetTabs) {
     const TAB = sheet.GetTab()
-    for (let i = 0; i < sheet.NumberOfRows(); i++) {
+    const START = Number(__Cache_Utils_QueryFirstWeek('start'))
+    const END = Number(__Cache_Utils_QueryLastWeek('end'))
+    for (let i = START; i < END; i++) {
         try {
-            TAB.getRowGroup(i, 1)?.remove()
+            TAB.getRowGroup(i + 1, 1)?.remove()
         } catch {}
     }
 }
@@ -44,9 +46,12 @@ function __ICH_FindInsertIndex(sheet: GoogleSheetTabs, start_row: number, date: 
 function __ICH_RecordExistingPurchases(sheet: GoogleSheetTabs, purchase_loc_index: number): [DataArrayEntry[], string[]] {
     const ROWS_TO_COMPARE = new Array<DataArrayEntry>()
     const DATES = new Array<string>()
+    const START = Number(__Cache_Utils_QueryFirstWeek('start'))
+    const END = Number(__Cache_Utils_QueryLastWeek('end'))
     let found_current_pay_period_rows = false
 
     sheet.ForEachRow((row, i) => {
+        if (i > END) { return 'break' }
         const STARTS_WITH_HEADER = String(row[purchase_loc_index]).startsWith(PURCHASE_HEADER)
 
         let date = ""
@@ -69,7 +74,7 @@ function __ICH_RecordExistingPurchases(sheet: GoogleSheetTabs, purchase_loc_inde
                 ROWS_TO_COMPARE.push(row)
             }
         }
-    })
+    }, START)
 
     return [ROWS_TO_COMPARE, DATES]
 }
@@ -137,10 +142,11 @@ function __ICH_AddToSheet(imported_data: any) {
     let [ROWS_TO_COMPARE, DATES] = __ICH_RecordExistingPurchases(SHEET_TRACKER, PURCHASE_LOC_INDEX)
     let ROWS_TO_ADD = __ICH_FilterNewPurchases(imported_data, ROWS_TO_COMPARE)
     __ICH_RecordNewPurchases(ROWS_TO_ADD, DATES, PURCHASE_DATE_INDEX, SHEET_TRACKER, DUE_DATE_INDEX)
-    __ICH_RemoveAllGroups(SHEET_TRACKER)
-
     SHEET_TRACKER.SaveToTab()
-    GroupAndCollapseBills()
+
+    __Cache_Utils_StoreOneWeekLoanCurrentMonthInfo()
+    __ICH_RemoveAllGroups(SHEET_TRACKER)
+    __Util_GroupCurrentMonthCharges()
 }
 
 function ImportCreditHistory() {

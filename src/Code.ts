@@ -44,9 +44,7 @@ function onDailyTrigger() {
   GroupWeeklyCharges()
 }
 
-function onMinutelyTrigger() {
-  //StockUpdates()
-}
+function onMinutelyTrigger() {}
 
 function onHourlyTrigger() {
   ScanEmailForCharges()

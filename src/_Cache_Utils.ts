@@ -15,6 +15,7 @@ type WeekObj = {
 type QueryAttrs = 'date' | 'start' | 'end' | 'full range' | 'group range' | 'shade'
 
 const CURRENT_MONTH_KEY = "ONE_WEEK_CUR_MONTH"
+const LAST_GROUP_SHADE_KEY = "LAST_SHADE"
 const [LIGHT_RED_1, LIGHT_RED_2] = ["#FF7F7F", "#FF9F9F"]
 
 function __CU_CreateEmptyWeekObject(): WeekObj {
@@ -39,6 +40,19 @@ function __CU_GetNextShade(shade: string | undefined | null) {
     if (shade === LIGHT_RED_1) { return LIGHT_RED_2 }
     else if (shade === LIGHT_RED_2) { return LIGHT_RED_1 }
     else { return LIGHT_RED_1 }
+}
+
+function __CU_GetLastGroupShade() {
+    const LAST_SHADE = PropertiesService.getDocumentProperties().getProperty(LAST_GROUP_SHADE_KEY)
+    if (LAST_SHADE == null) {
+        return __CU_GetNextShade("")
+    }
+
+    return LAST_SHADE
+}
+
+function __CU_StoreLastShade(shade: string) {
+    PropertiesService.getDocumentProperties().setProperty(LAST_GROUP_SHADE_KEY, shade)
 }
 
 function __Cache_Utils_StoreOneWeekLoanCurrentMonthInfo(start = -1, end = -1) {
@@ -68,25 +82,32 @@ function __Cache_Utils_StoreOneWeekLoanCurrentMonthInfo(start = -1, end = -1) {
                 WEEK_MAP.set(date, [])
             }
 
-            WEEK_MAP.get(date)!.push(i)
+            WEEK_MAP.get(date)!.push(i+1)
         }
     }, start)
 
     for (let [key, index] of WEEK_MAP) {
         const WEEK_INFO = __CU_CreateEmptyWeekInfoObj()
+        const START = Number(index[0])
+        const END = Number(index.at(-1))
         WEEK_INFO.date = key
-        WEEK_INFO.start_row = index[0]
-        WEEK_INFO.end_row = index.at(-1)!
-
-        let row_mod = Number(WEEK_INFO.start_row + 1 === WEEK_INFO.end_row)
-
-        WEEK_INFO.range_str = `A${WEEK_INFO.start_row + 1}:J${WEEK_INFO.end_row + row_mod}`
-        WEEK_INFO.range_shade = __CU_GetNextShade(OBJ.week_info_list.at(-1)?.range_shade)
-        WEEK_INFO.grouping_range = row_mod === 1 ? `A${WEEK_INFO.end_row + row_mod}:J${WEEK_INFO.end_row + row_mod}` : `A${WEEK_INFO.start_row + 2}:J${WEEK_INFO.end_row + 1}`
+        WEEK_INFO.range_str = `A${START}:J${END}`
+        WEEK_INFO.range_shade = __CU_GetLastGroupShade()
+        WEEK_INFO.grouping_range = `A${START + 1}:J${END}`
+        WEEK_INFO.start_row = START - 1
+        WEEK_INFO.end_row = END - 1
         OBJ.week_info_list.push(WEEK_INFO)
     }
 
     OBJ.last_date = OBJ.week_info_list.at(-1)!.date
+    
+    if (__Cache_Utils_HasOneWeekLoanInfo()) {
+        const STORED_OBJ = __Cache_Utils_QueryLastWeek('date')
+        const STORED_SHADE = String(__Cache_Utils_QueryLastWeek('shade'))
+        if (OBJ.last_date != STORED_OBJ) {
+            __CU_StoreLastShade(STORED_SHADE)
+        }
+    }
 
     PropertiesService.getDocumentProperties().setProperty(CURRENT_MONTH_KEY, JSON.stringify(OBJ))
 }

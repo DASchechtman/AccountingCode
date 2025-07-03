@@ -2,7 +2,7 @@
 function __SEFC_FindCharges() {
     const TODAY = __Util_CreateDateString(new Date())
     const NOW = new Date(TODAY)
-    const YEASTERDAY = new Date(NOW.getTime() - 24 * 60 * 60 * 1000)
+    const YEASTERDAY = new Date(NOW.getTime() - 48 * 60 * 60 * 1000)
     const QUERY = `in:inbox after:${Math.floor(YEASTERDAY.getTime() / 1000)}`
     const LABEL_TESTER = /You made a \$([0-9]+(\.[0-9]{2})?) transaction with (.+)/
 
