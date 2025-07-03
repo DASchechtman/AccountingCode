@@ -42,8 +42,13 @@ function ScanEmailForCharges() {
     let last_date = ""
 
     const PURCHASE_LOC_INDEX = SHEET.GetHeaderIndex("Purchase Location")
+    const START = Number(__Cache_Utils_QueryFirstWeek('start'))
+    const END = Number(__Cache_Utils_QueryLastWeek('end'))
+
 
     SHEET.ForEachRow((row, i) => {
+        if (i > END) { return 'break' }
+        
         const IS_HEADER = String(row[PURCHASE_LOC_INDEX]).startsWith(PURCHASE_HEADER)
 
         if (IS_HEADER) {
@@ -58,7 +63,7 @@ function ScanEmailForCharges() {
             })
         }
         
-    })
+    }, START)
 
     for (let charge of CHARGES) {
         let insert_row = INSERT_DATA[0]
