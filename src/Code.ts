@@ -29,6 +29,7 @@ function onOpen() {
   SafelyCreateMenu(() => {
     UI.createMenu("Budgeting")
         .addItem("Import Credit Card Transactions", "ImportCreditHistory")
+        .addItem("Refresh User Cache", "RefreshCache")
         .addToUi()
   })
 
@@ -41,11 +42,9 @@ function onOpen() {
 
 function onDailyTrigger() {
   __Cache_Utils_StoreOneWeekLoanCurrentMonthInfo()
-  GroupWeeklyCharges()
   AddRowsWhenNeeded()
+  GroupWeeklyCharges()
 }
-
-function onMinutelyTrigger() {}
 
 function onHourlyTrigger() {
   ScanEmailForCharges()

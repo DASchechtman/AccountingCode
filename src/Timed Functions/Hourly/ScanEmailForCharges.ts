@@ -80,5 +80,7 @@ function ScanEmailForCharges() {
 
     SHEET.SaveToTab()
 
+    __Cache_Utils_StoreOneWeekLoanCurrentMonthInfo()
+
     return true
 }
