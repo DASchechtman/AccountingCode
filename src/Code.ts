@@ -15,6 +15,9 @@ function onEdit(e: unknown) {
   else if (TAB_NAME === HOUSE_SAVINGS_TAB_NAME) {
     HouseSavingsOnEdit()
   }
+  else if (TAB_NAME === INVESTMENT_ALLOC_TAB) {
+    InvestmentAllocationCalcOnEdit()
+  }
 }
 
 function onOpen() {
