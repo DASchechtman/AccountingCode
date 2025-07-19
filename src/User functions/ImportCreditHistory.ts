@@ -128,8 +128,16 @@ function __ICH_RecordNewPurchases(
     }
 }
 
+function __ICH_IsBeforeThe26th(date: string) {
+    const DATE_STR = String(__Cache_Utils_QueryLastWeek('date')).split('/')
+    const END_DATE = new Date(`${DATE_STR[0]}/26/${DATE_STR[2]}`)
+    const DATE1 = new Date(date)
+    return DATE1 <= END_DATE
+}
+
 function __ICH_AddToSheet(imported_data: any) {
     if (!__ICH_IsCorrectInput(imported_data)) { throw new Error("Wrong Input!") }
+    imported_data = imported_data.filter(x => __ICH_IsBeforeThe26th(x.date))
 
     const SHEET_TRACKER = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
     const CARD_INDEX = SHEET_TRACKER.GetHeaderIndex("Card")

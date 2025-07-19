@@ -15,6 +15,9 @@ function onEdit(e: unknown) {
   else if (TAB_NAME === HOUSE_SAVINGS_TAB_NAME) {
     HouseSavingsOnEdit()
   }
+  else if (TAB_NAME === INVESTMENT_ALLOC_TAB) {
+    InvestmentAllocationCalcOnEdit()
+  }
 }
 
 function onOpen() {
@@ -29,6 +32,7 @@ function onOpen() {
   SafelyCreateMenu(() => {
     UI.createMenu("Budgeting")
         .addItem("Import Credit Card Transactions", "ImportCreditHistory")
+        .addItem("Refresh User Cache", "RefreshCache")
         .addToUi()
   })
 
@@ -41,11 +45,9 @@ function onOpen() {
 
 function onDailyTrigger() {
   __Cache_Utils_StoreOneWeekLoanCurrentMonthInfo()
-  GroupWeeklyCharges()
   AddRowsWhenNeeded()
+  GroupWeeklyCharges()
 }
-
-function onMinutelyTrigger() {}
 
 function onHourlyTrigger() {
   ScanEmailForCharges()
