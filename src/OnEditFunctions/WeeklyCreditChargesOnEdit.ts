@@ -4,10 +4,6 @@ function __WCCOE_GetSumFormula(start_range: string, end_range: string) {
     return `=SUM(ARRAYFORMULA(ROUNDUP(${start_range}:${end_range})))`
 }
 
-function test() {
-    console.log("test")
-}
-
 function __WCCOE_SetLastRowToHaveSum(sheet: GoogleSheetTabs, start_range: string, amt_col_index: number, total_col_index: number) {
     const LAST_ROW = sheet.GetRow(sheet.NumberOfRows() - 1)!
     const END_RANGE = `${__Util_IndexToColLetter(amt_col_index)}${sheet.NumberOfRows()}`
