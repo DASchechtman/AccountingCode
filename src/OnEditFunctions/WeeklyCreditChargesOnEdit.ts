@@ -158,9 +158,10 @@ function WeeklyCreditChargesOnEdit() {
     }
 
     const LAST_WEEK = MONTHS.at(-1)!
+    const MONTHLY_ALLOWANCE = Math.min(PAY_AMT.at(-1)! * MONTHS.length, 500)
 
     const ROW = WEEKLY_CHARGES_SHEET.GetRow(LAST_WEEK.end_row)!
-    ROW[MONEY_LEFT_COL_INDEX] = `= ${PAY_AMT.at(-1)! * MONTHS.length} + SUM(${TIPS.join(',')}) - SUM(${SUM_RANGES.join(',')})`
+    ROW[MONEY_LEFT_COL_INDEX] = `= ${MONTHLY_ALLOWANCE} + SUM(${TIPS.join(',')}) - SUM(${SUM_RANGES.join(',')})`
     WEEKLY_CHARGES_SHEET.OverWriteRow(ROW)
     WEEKLY_CHARGES_SHEET.SaveToTab()
 }
