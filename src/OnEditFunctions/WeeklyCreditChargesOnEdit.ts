@@ -1,7 +1,11 @@
-const PAY_AMT = [126]
+const PAY_AMT = [126, 125]
 
 function __WCCOE_GetSumFormula(start_range: string, end_range: string) {
     return `=SUM(ARRAYFORMULA(ROUNDUP(${start_range}:${end_range})))`
+}
+
+function test() {
+    console.log("test")
 }
 
 function __WCCOE_SetLastRowToHaveSum(sheet: GoogleSheetTabs, start_range: string, amt_col_index: number, total_col_index: number) {
@@ -39,6 +43,7 @@ function WeeklyCreditChargesOnEdit_Legacy() {
     const PURCHASE_DATE_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Purchase Date")
     const TIPS_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Tips")
     const MONEY_LEFT_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Money Left")
+    const MAX_MONTHLY_ALLOWANCE = 500
 
     let start_range = ''
     let due_date = ''
@@ -77,7 +82,7 @@ function WeeklyCreditChargesOnEdit_Legacy() {
             }
 
             if (in_month > 0) {
-                money_left += PAY_AMT.at(-1)!
+                money_left = Math.min(money_left + PAY_AMT.at(-1)!, MAX_MONTHLY_ALLOWANCE)
                 total_charge_cells.push([tip_range, __WCCOE_GetWeeklyCharges(WEEKLY_CHARGES_SHEET, i + 1, PURCHASE_LOC_COL_INDEX, AMT_COL_INDEX)])
             }
 
