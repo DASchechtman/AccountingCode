@@ -1,4 +1,4 @@
-const PAY_AMT = [127, 125]
+const PAY_AMT = [126, 125]
 
 function __WCCOE_GetSumFormula(start_range: string, end_range: string) {
     return `=SUM(ARRAYFORMULA(ROUNDUP(${start_range}:${end_range})))`
