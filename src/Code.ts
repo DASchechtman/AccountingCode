@@ -44,8 +44,8 @@ function onOpen() {
 }
 
 function onDailyTrigger() {
-  __Cache_Utils_StoreOneWeekLoanCurrentMonthInfo()
   AddRowsWhenNeeded()
+  CacheStartOfMonthRow()
   GroupWeeklyCharges()
 }
 

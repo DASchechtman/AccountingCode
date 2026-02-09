@@ -224,6 +224,7 @@ class GoogleSheetTabs {
     }
 
     public AppendRow(row: DataArrayEntry, should_fill: boolean = false): DataArrayEntry {
+        row = row.map(i => i === undefined ? "" : i)
         row = this.MapToRow(row, this.data.length)
         
         if (should_fill) {
@@ -242,6 +243,7 @@ class GoogleSheetTabs {
         AlterRow?: (row: DataArrayEntry) => DataArrayEntry,
         should_fill?: boolean
     } = {}) {
+        row = row.map(i => i === undefined ? "" : i)
         if (row_index < 0) { row_index = 0 }
         if (!AlterRow) {
             row = this.MapToRow(row, row_index)
@@ -265,6 +267,10 @@ class GoogleSheetTabs {
         let row_index = this.data.findIndex(i => func(i.map(c => c.Read())))
         if (row_index === -1) { return undefined }
         return this.ConvertAndMapToDataArray(row_index)
+    }
+
+    public FindRowIndex(func: (row: DataArrayEntry) => boolean) {
+        return this.data.findIndex(i => func(i.map(c => c.Read())))
     }
 
     public FilterRows(func: (row: DataArrayEntry) => boolean) {

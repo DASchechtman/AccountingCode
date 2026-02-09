@@ -45,19 +45,46 @@
           transform: rotate(360deg);
         }
       }
+
+      .AddRow {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+      }
     </style>
   </head>
   <body>
     <div id="import">
       <h2>Upload an HTML File</h2>
+      <div class="AddRow">
+        <button onclick="AddRow()">Add Row</button>
+        <input type="date" placeholder="date" id="row-date" />
+        <input type="text" placeholder="name" id="row-name" />
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="$0.00"
+          id="row-amt"
+        />
+      </div>
       <input type="file" id="fileInput" accept=".html" />
       <button onclick="readFile()">Upload</button>
 
       <h3>File Transactions:</h3>
-      <div id="preview"></div>
-      <button id="process" class="hide" onclick="Process()">
-        Import into Sheet
-      </button>
+      <div id="preview">
+        <table id="transactions">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Name</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <button onclick="Process()">Import Transactions</button>
     </div>
 
     <div id="load-wheel" class="hide">
@@ -72,7 +99,18 @@
     </div>
 
     <script>
-      let values_to_process = [];
+      let values_to_process = function() {
+        const table = document.getElementById('transactions').getElementsByTagName('tbody')[0].getElementsByTagName('tr')
+        let vals = []
+
+        for (let i = 0; i < table.length; i++) {
+          let row = table[i]
+          let cells = Array.from(row.getElementsByTagName('td')).map(x => x.innerText)
+          vals.push(cells)
+        }
+
+        return vals
+      };
       function ParseHtml(html, start_key) {
         let start = html.indexOf(start_key);
         if (start < 0) {
@@ -139,17 +177,10 @@
           ),
         ];
 
-        let TABLE_ROWS = vals.map((row) => {
-          let td = row.map((x) => `<td>${x}</td>`);
-          return `<tr>${td.join("")}</tr>`;
-        });
-
-        let HTML = `<table><thead><tr><th>Date</th><th>Name</th><th>Amount</th></tr></thead><tbody>${TABLE_ROWS.join(
-          ""
-        )}</tbody></table>`;
-        document.getElementById("preview").innerHTML = HTML;
-        document.getElementById("process").className = "";
-        values_to_process = vals;
+        for (let row of vals) {
+          AddRow(row[0], row[1], row[2])
+        }
+        
       }
 
       function readFile() {
@@ -169,8 +200,64 @@
         reader.readAsText(file);
       }
 
+      function AddRow(date, name, amount) {
+        const table = document.getElementById('transactions').getElementsByTagName('tbody')[0]
+        
+        const newRow = table.insertRow()
+        const dateCell = newRow.insertCell(0)
+        const nameCell = newRow.insertCell(1)
+        const amtCell = newRow.insertCell(2)
+        
+        let new_date = date
+        let new_name = name
+        let new_amt = amount
+
+        if (new_date == null) {
+          const field = document.getElementById("row-date")
+          new_date = field.value
+          field.value = ""
+
+          if (new_date === "") {
+            const new_date_obj = new Date()
+            const day = String(new_date_obj.getDate()).padStart(2, '0')
+            const month = String(new_date_obj.getMonth()+1).padStart(2, '0')
+            const year = new_date_obj.getFullYear()
+
+            new_date = `${month}/${day}/${year}`
+          }
+          else {
+            const date_comps = new_date.split('-')
+            const day = date_comps[2]
+            const month = date_comps[1]
+            const year = date_comps[0]
+            new_date = `${month}/${day}/${year}`
+          }
+        }
+
+        if (new_name == null) {
+          const field = document.getElementById("row-name")
+          new_name = field.value
+          field.value = ""
+        }
+
+        if (new_amt == null) {
+          const field = document.getElementById("row-amt")
+          new_amt = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+          }).format(field.value)
+          field.value = 0
+        }
+
+        if (new_name === "" || Number(new_amt) === 0) { return }
+
+        dateCell.innerText = new_date
+        nameCell.innerText = new_name
+        amtCell.innerText = new_amt
+      }
+
       function Process() {
-        values_to_process = values_to_process
+        let val_to_process = values_to_process()
           .map((row) => {
             return {
               date: row[0],
@@ -179,7 +266,7 @@
             };
           })
           .sort((a, b) => new Date(a.date) - new Date(b.date))
-          .filter((a) => a.amt > 0)
+          .filter((a) => a.amt > 0);
 
         document.getElementById("import").remove();
         document.getElementById("load-wheel").className = "";
@@ -187,7 +274,7 @@
         google.script.run
           .withSuccessHandler(Success)
           .withFailureHandler(Fail)
-          .__ICH_AddToSheet(values_to_process);
+          .__ICH_AddToSheet(val_to_process);
       }
 
       function Success() {

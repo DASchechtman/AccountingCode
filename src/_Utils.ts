@@ -250,7 +250,7 @@ function __Util_GroupByDate(
 }
 
 // currently used
-function __Util_DateInCurrentPayPeriod(compare_date: string) {
+function __Util_DateInCurrentPayPeriod(compare_date: string | Date) {
   const COMPARE_DATE = new Date(compare_date)
   const CUR_DAY = new Date()
   if (COMPARE_DATE.toString() === "Invalid Date") { return false }
@@ -279,31 +279,96 @@ function __Util_DateInCurrentPayPeriod(compare_date: string) {
   return SAME_MONTH && SAME_YEAR
 }
 
+function __Util_GetRowThatStartsTheMonth(override = false) {
+  const CACHED_ROW_NUM = PropertiesService.getUserProperties().getProperty(START_OF_MONTH_ROW_CACHE_KEY)
+  if (CACHED_ROW_NUM != null && !override) {
+    return Number(CACHED_ROW_NUM)
+  }
+
+  let today = new Date()
+  const SHEET = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
+  const PURCHASE_LOCATION_INDEX = SHEET.GetHeaderIndex("Purchase Location")
+
+  let found_beginning_of_month = __Util_DateInCurrentPayPeriod(today)
+  let last_date_str = __Util_CreateDateString(today)
+
+  while (today.getDay() !== 3 && found_beginning_of_month) {
+    today.setDate(today.getDate() - 1)
+    found_beginning_of_month = __Util_DateInCurrentPayPeriod(today)
+    if (!found_beginning_of_month) { break }
+
+    last_date_str = __Util_CreateDateString(today)
+  }
+
+  let last_date = last_date_str
+  let last_date_row = SHEET.FindRowIndex((row) => String(row[PURCHASE_LOCATION_INDEX]).includes(last_date))
+
+  if (!found_beginning_of_month) { return last_date_row }
+
+  while (last_date_row !== -1 && found_beginning_of_month) {
+    today.setDate(today.getDate() - 7)
+    found_beginning_of_month = __Util_DateInCurrentPayPeriod(today)
+    if (!found_beginning_of_month) { break }
+
+    last_date = __Util_CreateDateString(today)
+    last_date_row = SHEET.FindRowIndex((row) => String(row[PURCHASE_LOCATION_INDEX]).includes(last_date))
+  }
+
+  return last_date_row
+}
+
 function __Util_GroupCurrentMonthCharges() {
-  const QUERY = __Cache_Utils_QueryAllAttrs()
+  const SHEET = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
+  const GROUP_MAP = new Array<{ start_row: number, num_of_purchases: number }>()
+  const PURCHASE_LOCATION_INDEX = SHEET.GetHeaderIndex('Purchase Location')
+  const START_ROW = __Util_GetRowThatStartsTheMonth()
 
-    if (!QUERY) { return }
-
-    for (let query of QUERY) {
-        const SHEET = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(WEEKLY_CREDIT_CHARGES_TAB_NAME)
-        const COLOR_RANGE = SHEET?.getRange(query.range_str)
-        const GROUP_RANGE = SHEET?.getRange(query.grouping_range)
-        const COLOR = query.range_shade
-        let group
-
-        try {
-            group = SHEET!.getRowGroup(GROUP_RANGE!.getRowIndex(), 1)
-            group?.remove()
-            GROUP_RANGE?.shiftRowGroupDepth(1)
-            group = SHEET!.getRowGroup(GROUP_RANGE!.getRowIndex(), 1)
-        } catch {
-            GROUP_RANGE?.shiftRowGroupDepth(1)
-            group = SHEET!.getRowGroup(GROUP_RANGE!.getRowIndex(), 1)
-        }
-
-        if (new Date() > new Date(query.date) && !group?.isCollapsed()) {
-            GROUP_RANGE?.collapseGroups()
-            COLOR_RANGE?.setBackground(COLOR)
-        }
+  const IsDate = (str: string) => {
+    if (/^[0-9]{1,2}\/[0-9]{1,2}\/[0-9]{2,4}$/.test(str)){
+      return true
     }
+    else if(/^Purchases for [0-9]{1,2}\/[0-9]{1,2}\/[0-9]{2,4}$/.test(str)) {
+      return true
+    }
+    return false
+  }
+
+  let last_header = ""
+
+  SHEET.ForEachRow((row, i) => {
+    const PURCHASE_LOC_DATA = String(row[PURCHASE_LOCATION_INDEX])
+    if (IsDate(PURCHASE_LOC_DATA)) {
+      last_header = PURCHASE_LOC_DATA
+      if (!PURCHASE_LOC_DATA.startsWith(PURCHASE_HEADER)) {
+        row[PURCHASE_LOCATION_INDEX] = `${PURCHASE_HEADER} ${PURCHASE_LOC_DATA}`
+      }
+
+      GROUP_MAP.push({ start_row: i + 1, num_of_purchases: 0 })
+    }
+    else {
+      GROUP_MAP.at(-1)!.num_of_purchases++
+    }
+
+    return row
+  }, START_ROW)
+
+  const RAW_SHEET = SHEET.GetTab()
+  for (let group_data of GROUP_MAP) {
+    try {
+      RAW_SHEET.getRowGroup(group_data.start_row + 1, 1)
+    } catch {
+      const RANGE_ARR = [`A${group_data.start_row + 1}`]
+      if (group_data.num_of_purchases === 1) {
+        RANGE_ARR.push(`J${group_data.start_row + 1}`)
+      }
+      else {
+        RANGE_ARR.push(`J${group_data.start_row + 1 + group_data.num_of_purchases}`)
+      }
+      const RANGE = RAW_SHEET.getRange(RANGE_ARR.join(':'))
+      RANGE.shiftRowGroupDepth(1)
+      RAW_SHEET.getRowGroup(group_data.start_row + 1, 1)?.collapse()
+    }
+  }
+
+  SHEET.SaveToTab()
 }

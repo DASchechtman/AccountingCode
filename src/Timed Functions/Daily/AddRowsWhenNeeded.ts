@@ -1,33 +1,34 @@
 
-function __ARWN_AddNextMonth(sheet: GoogleSheetTabs, date_str: string) {
-    const DATE = new Date(date_str)
-
-    for (let i = 0; i < 5; i++) {
-        DATE.setDate(DATE.getDate() + 7)
-        const NEW_DATE = __Util_CreateDateString(DATE)
-        sheet.AppendRow(["", "", NEW_DATE])
-        sheet.AppendRow(["", "", "", "", NEW_DATE])
-    }
-
-    sheet.SaveToTab()
-}
-
-
 function AddRowsWhenNeeded() {
     const SHEET = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
-    const LAST_CACHED_DATE = __Cache_Utils_QueryLastWeek('date')
+    const PURCHASE_LOCATION_INDEX = SHEET.GetHeaderIndex("Purchase Location")
+    const DUE_DATE_INDEX = SHEET.GetHeaderIndex("Due Date")
+    const NEW_ROWS = new Array<Array<string>>()
+    let today = new Date()
 
-    const PURCHASE_LOC_INDEX = SHEET.GetHeaderIndex('Purchase Location')
+    if (today.getDate() !== 28) { return }
 
-    for (let i = SHEET.NumberOfRows() - 1; i >= 0; i--) {
-        const ROW = SHEET.GetRow(i)!
-        const HEADER = String(ROW[PURCHASE_LOC_INDEX])
-        const IS_HEADER = HEADER.startsWith(PURCHASE_HEADER)
-
-        if (IS_HEADER) {
-            const HEADER_DATE = __Util_GetDateFromDateHeader(HEADER)
-            if (HEADER_DATE === LAST_CACHED_DATE) { __ARWN_AddNextMonth(SHEET, LAST_CACHED_DATE) }
-            break
-        }
+    while (today.getDay() !== 3) {
+        today.setDate(today.getDate() + 1)
     }
+
+    while (__Util_DateInCurrentPayPeriod(today)) {
+        const LAST_DATE = __Util_CreateDateString(today)
+        const HEADER = `${PURCHASE_HEADER} ${LAST_DATE}`
+        const HEADER_ARR: string[] = []
+        const DUE_DATE_ARR: string[] = []
+        HEADER_ARR[PURCHASE_LOCATION_INDEX] = HEADER
+        DUE_DATE_ARR[DUE_DATE_INDEX] = LAST_DATE
+        NEW_ROWS.push(HEADER_ARR)
+        NEW_ROWS.push(DUE_DATE_ARR)
+        today.setDate(today.getDate() + 7)
+    }
+
+    for(let new_row of NEW_ROWS) {
+        SHEET.AppendRow(new_row)
+    }
+
+    SHEET.SaveToTab()
+
+
 }
