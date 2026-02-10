@@ -75,7 +75,7 @@ function HouseSavingsOnEdit() {
         }
 
         return row
-    }, true)
+    }, 1)
 
     HOUSE_SAVINGS_SHEET.SaveToTab()
 }

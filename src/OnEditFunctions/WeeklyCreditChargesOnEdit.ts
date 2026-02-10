@@ -1,167 +1,255 @@
-const PAY_AMT = [126, 125]
+const PAY_AMT = [126, 125];
 
 function __WCCOE_GetSumFormula(start_range: string, end_range: string) {
-    return `=SUM(ARRAYFORMULA(ROUNDUP(${start_range}:${end_range})))`
+  return `=SUM(ARRAYFORMULA(ROUNDUP(${start_range}:${end_range})))`;
 }
 
-function __WCCOE_SetLastRowToHaveSum(sheet: GoogleSheetTabs, start_range: string, amt_col_index: number, total_col_index: number) {
-    const LAST_ROW = sheet.GetRow(sheet.NumberOfRows() - 1)!
-    const END_RANGE = `${__Util_IndexToColLetter(amt_col_index)}${sheet.NumberOfRows()}`
-    LAST_ROW[total_col_index] = __WCCOE_GetSumFormula(start_range, END_RANGE)
-    sheet.OverWriteRow(LAST_ROW)
-    return END_RANGE
+function __WCCOE_SetLastRowToHaveSum(
+  sheet: GoogleSheetTabs,
+  start_range: string,
+  amt_col_index: number,
+  total_col_index: number,
+) {
+  const LAST_ROW = sheet.GetRow(sheet.NumberOfRows() - 1)!;
+  const END_RANGE = `${__Util_IndexToColLetter(amt_col_index)}${sheet.NumberOfRows()}`;
+  LAST_ROW[total_col_index] = __WCCOE_GetSumFormula(start_range, END_RANGE);
+  sheet.OverWriteRow(LAST_ROW);
+  return END_RANGE;
 }
 
-function __WCCOE_GetWeeklyCharges(sheet: GoogleSheetTabs, start: number, purchase_col: number, amt_col: number) {
-    let cells = new Array<string>()
-    for (let i = start; i < sheet.NumberOfRows(); i++) {
-        const ROW = sheet.GetRow(i)!
-        const PURCHASES = ROW[purchase_col].toString()
+function __WCCOE_GetWeeklyCharges(
+  sheet: GoogleSheetTabs,
+  start: number,
+  purchase_col: number,
+  amt_col: number,
+) {
+  let cells = new Array<string>();
+  for (let i = start; i < sheet.NumberOfRows(); i++) {
+    const ROW = sheet.GetRow(i)!;
+    const PURCHASES = ROW[purchase_col].toString();
 
-        if (PURCHASES.startsWith("Purchases for")) {
-            break
-        }
-
-        cells.push(`${__Util_IndexToColLetter(amt_col)}${i + 1}`)
+    if (PURCHASES.startsWith("Purchases for")) {
+      break;
     }
 
-    return `${cells[0]}:${cells.at(-1)}`
-}
+    cells.push(`${__Util_IndexToColLetter(amt_col)}${i + 1}`);
+  }
 
+  return `${cells[0]}:${cells.at(-1)}`;
+}
 
 function WeeklyCreditChargesOnEdit_Legacy() {
-    const WEEKLY_CHARGES_SHEET = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
+  const WEEKLY_CHARGES_SHEET = new GoogleSheetTabs(
+    WEEKLY_CREDIT_CHARGES_TAB_NAME,
+  );
 
-    const TOTAL_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Total")
-    const AMT_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Amount")
-    const PURCHASE_LOC_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Purchase Location")
-    const DUE_DATE_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Due Date")
-    const PURCHASE_DATE_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Purchase Date")
-    const TIPS_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Tips")
-    const MONEY_LEFT_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Money Left")
-    const MAX_MONTHLY_ALLOWANCE = 500
+  const TOTAL_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Total");
+  const AMT_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Amount");
+  const PURCHASE_LOC_COL_INDEX =
+    WEEKLY_CHARGES_SHEET.GetHeaderIndex("Purchase Location");
+  const DUE_DATE_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Due Date");
+  const PURCHASE_DATE_COL_INDEX =
+    WEEKLY_CHARGES_SHEET.GetHeaderIndex("Purchase Date");
+  const TIPS_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Tips");
+  const MONEY_LEFT_COL_INDEX =
+    WEEKLY_CHARGES_SHEET.GetHeaderIndex("Money Left");
+  const MAX_MONTHLY_ALLOWANCE = 500;
 
-    let start_range = ''
-    let due_date = ''
-    let tip_cell = ''
-    let total_charge_cells = new Array<Array<string>>()
-    let money_left = 0
-    let in_month = 0
-    const START = Number(__Cache_Utils_QueryFirstWeek('start'))
-    const END = Number(__Cache_Utils_QueryLastWeek('end'))
+  let start_range = "";
+  let due_date = "";
+  let tip_cell = "";
+  let total_charge_cells = new Array<Array<string>>();
+  let money_left = 0;
+  let in_month = 0;
+  const START = Number(__Cache_Utils_QueryFirstWeek("start"));
+  const END = Number(__Cache_Utils_QueryLastWeek("end"));
 
-    const InPayPeriod = (check: string) => {
-        return __Util_DateInCurrentPayPeriod(check)
+  const InPayPeriod = (check: string) => {
+    return __Util_DateInCurrentPayPeriod(check);
+  };
+
+  for (let i = START; i <= END; i++) {
+    const ROW = WEEKLY_CHARGES_SHEET.GetRow(i)!;
+    const PURCHASES = ROW[PURCHASE_LOC_COL_INDEX].toString();
+
+    if (PURCHASES.startsWith("Purchases for")) {
+      due_date = __Util_GetDateFromDateHeader(PURCHASES);
+      const LAST_ROW = WEEKLY_CHARGES_SHEET.GetRow(i - 1)!;
+      const IN_PAY_PERIOD = InPayPeriod(due_date);
+      const end_range = `${__Util_IndexToColLetter(AMT_COL_INDEX)}${i}`;
+      const tip_range = `${__Util_IndexToColLetter(TIPS_COL_INDEX)}${i + 1}`;
+
+      if (IN_PAY_PERIOD) {
+        in_month++;
+      } else if (in_month > 0 && !IN_PAY_PERIOD) {
+        const MONTHLY_TOTALS = total_charge_cells
+          .map((cell) => cell[1])
+          .join(",");
+        const MONTHLY_TIPS = total_charge_cells
+          .map((cell) => cell[0])
+          .join(",");
+        LAST_ROW[MONEY_LEFT_COL_INDEX] =
+          `=${money_left} + SUM(${MONTHLY_TIPS}) - SUM(${MONTHLY_TOTALS})`;
+        in_month = 0;
+      }
+
+      if (in_month > 0) {
+        money_left = Math.min(
+          money_left + PAY_AMT.at(-1)!,
+          MAX_MONTHLY_ALLOWANCE,
+        );
+        total_charge_cells.push([
+          tip_range,
+          __WCCOE_GetWeeklyCharges(
+            WEEKLY_CHARGES_SHEET,
+            i + 1,
+            PURCHASE_LOC_COL_INDEX,
+            AMT_COL_INDEX,
+          ),
+        ]);
+      }
+
+      if (start_range === "") {
+        start_range = `${__Util_IndexToColLetter(AMT_COL_INDEX)}${i + 2}`;
+      } else {
+        const TOTAL = __WCCOE_GetSumFormula(start_range, end_range);
+        LAST_ROW[TOTAL_COL_INDEX] = TOTAL;
+
+        start_range = `${__Util_IndexToColLetter(AMT_COL_INDEX)}${i + 2}`;
+      }
+
+      WEEKLY_CHARGES_SHEET.OverWriteRow(LAST_ROW);
+    } else {
+      ROW[TOTAL_COL_INDEX] = "";
+      ROW[MONEY_LEFT_COL_INDEX] = "";
+
+      if (ROW[DUE_DATE_COL_INDEX] === "") {
+        ROW[DUE_DATE_COL_INDEX] = due_date;
+      }
+
+      if (ROW[PURCHASE_DATE_COL_INDEX] === "") {
+        ROW[PURCHASE_DATE_COL_INDEX] = __Util_CreateDateString(new Date());
+      }
     }
 
+    WEEKLY_CHARGES_SHEET.OverWriteRow(ROW);
+  }
 
-    for (let i = START; i <= END; i++) {
-        const ROW = WEEKLY_CHARGES_SHEET.GetRow(i)!
-        const PURCHASES = ROW[PURCHASE_LOC_COL_INDEX].toString()
+  __WCCOE_SetLastRowToHaveSum(
+    WEEKLY_CHARGES_SHEET,
+    start_range,
+    AMT_COL_INDEX,
+    TOTAL_COL_INDEX,
+  );
 
-        if (PURCHASES.startsWith("Purchases for")) {
-            due_date = __Util_GetDateFromDateHeader(PURCHASES)
-            const LAST_ROW = WEEKLY_CHARGES_SHEET.GetRow(i - 1)!
-            const IN_PAY_PERIOD = InPayPeriod(due_date)
-            const end_range = `${__Util_IndexToColLetter(AMT_COL_INDEX)}${i}`
-            const tip_range = `${__Util_IndexToColLetter(TIPS_COL_INDEX)}${i + 1}`
+  WEEKLY_CHARGES_SHEET.SaveToTab();
+}
 
+function WeeklyCreditChargesOnEdit_Legacy2() {
+  const WEEKLY_CHARGES_SHEET = new GoogleSheetTabs(
+    WEEKLY_CREDIT_CHARGES_TAB_NAME,
+  );
+  const TOTAL_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Total");
+  const TIPS_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Tips");
+  const MONEY_LEFT_COL_INDEX =
+    WEEKLY_CHARGES_SHEET.GetHeaderIndex("Money Left");
+  const AMT_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Amount");
+  const MONTHS = __Cache_Utils_QueryAllAttrs();
+  const TIPS = new Array<string>();
+  const SUM_RANGES = new Array<string>();
 
-            if (IN_PAY_PERIOD) {
-                in_month++
-            }
-            else if (in_month > 0 && !IN_PAY_PERIOD) {
-                const MONTHLY_TOTALS = total_charge_cells.map(cell => cell[1]).join(',')
-                const MONTHLY_TIPS = total_charge_cells.map(cell => cell[0]).join(',')
-                LAST_ROW[MONEY_LEFT_COL_INDEX] = `=${money_left} + SUM(${MONTHLY_TIPS}) - SUM(${MONTHLY_TOTALS})`
-                in_month = 0
-            }
+  if (!MONTHS) {
+    return;
+  }
 
-            if (in_month > 0) {
-                money_left = Math.min(money_left + PAY_AMT.at(-1)!, MAX_MONTHLY_ALLOWANCE)
-                total_charge_cells.push([tip_range, __WCCOE_GetWeeklyCharges(WEEKLY_CHARGES_SHEET, i + 1, PURCHASE_LOC_COL_INDEX, AMT_COL_INDEX)])
-            }
+  for (let info of MONTHS) {
+    const AMT_COL_LETTER = __Util_IndexToColLetter(AMT_COL_INDEX);
+    const SUM_RANGE = `${AMT_COL_LETTER}${info.start_row + 2}:${AMT_COL_LETTER}${info.end_row + 1}`;
 
-            if (start_range === '') {
-                start_range = `${__Util_IndexToColLetter(AMT_COL_INDEX)}${i + 2}`
-            }
-            else {
-                const TOTAL = __WCCOE_GetSumFormula(start_range, end_range)
-                LAST_ROW[TOTAL_COL_INDEX] = TOTAL
+    for (let i = info.start_row; i <= info.end_row; i++) {
+      const ROW = WEEKLY_CHARGES_SHEET.GetRow(i);
+      if (!ROW) {
+        continue;
+      }
 
-                start_range = `${__Util_IndexToColLetter(AMT_COL_INDEX)}${i + 2}`
-            }
+      if (i == info.end_row) {
+        ROW[TOTAL_COL_INDEX] = `=SUM(ARRAYFORMULA(ROUNDUP(${SUM_RANGE})))`;
+      } else {
+        ROW[TOTAL_COL_INDEX] = "";
+      }
 
-            WEEKLY_CHARGES_SHEET.OverWriteRow(LAST_ROW)
-        }
-        else {
-            ROW[TOTAL_COL_INDEX] = ''
-            ROW[MONEY_LEFT_COL_INDEX] = ''
+      ROW[MONEY_LEFT_COL_INDEX] = "";
 
-            if (ROW[DUE_DATE_COL_INDEX] === '') {
-                ROW[DUE_DATE_COL_INDEX] = due_date
-            }
-
-            if (ROW[PURCHASE_DATE_COL_INDEX] === '') {
-                ROW[PURCHASE_DATE_COL_INDEX] = __Util_CreateDateString(new Date())
-            }
-        }
-
-        WEEKLY_CHARGES_SHEET.OverWriteRow(ROW)
+      WEEKLY_CHARGES_SHEET.OverWriteRow(ROW);
     }
 
-    __WCCOE_SetLastRowToHaveSum(WEEKLY_CHARGES_SHEET, start_range, AMT_COL_INDEX, TOTAL_COL_INDEX)
+    SUM_RANGES.push(SUM_RANGE);
+    TIPS.push(`${__Util_IndexToColLetter(TIPS_INDEX)}${info.start_row + 1}`);
+  }
 
-    WEEKLY_CHARGES_SHEET.SaveToTab()
+  const LAST_WEEK = MONTHS.at(-1)!;
+  const MONTHLY_ALLOWANCE = Math.min(PAY_AMT.at(-1)! * MONTHS.length, 500);
+
+  const ROW = WEEKLY_CHARGES_SHEET.GetRow(LAST_WEEK.end_row)!;
+  ROW[MONEY_LEFT_COL_INDEX] =
+    `= ${MONTHLY_ALLOWANCE} + SUM(${TIPS.join(",")}) - SUM(${SUM_RANGES.join(",")})`;
+  WEEKLY_CHARGES_SHEET.OverWriteRow(ROW);
+  WEEKLY_CHARGES_SHEET.SaveToTab();
 }
 
 function WeeklyCreditChargesOnEdit() {
-    const WEEKLY_CHARGES_SHEET = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
-    const TOTAL_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex('Total')
-    const TIPS_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex('Tips')
-    const MONEY_LEFT_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex('Money Left')
-    const AMT_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex('Amount')
+  const WEEKLY_CHARGES_SHEET = new GoogleSheetTabs(
+    WEEKLY_CREDIT_CHARGES_TAB_NAME,
+  );
+  const TOTAL_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Total");
+  const TIPS_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Tips");
+  const MONEY_LEFT_COL_INDEX =
+    WEEKLY_CHARGES_SHEET.GetHeaderIndex("Money Left");
+  const AMT_COL_INDEX = WEEKLY_CHARGES_SHEET.GetHeaderIndex("Amount");
+  const PURCHASE_LOC_COL_INDEX =
+    WEEKLY_CHARGES_SHEET.GetHeaderIndex("Purchase Location");
+  const START = __Util_GetRowThatStartsTheMonth();
+  const END = __Util_GetRowThatEndsTheMonth();
+  const MONTHLY_ALLOWANCE = new Array<number>();
+  const WEEKLY_CHARGES = new Map<number, number>();
 
-    const MONTHS = __Cache_Utils_QueryAllAttrs()
-    const TIPS = new Array<string>()
-    const SUM_RANGES = new Array<string>()
+  let index = -1;
 
-    if (!MONTHS) { return }
-
-    for (let info of MONTHS) {
-        const AMT_COL_LETTER = __Util_IndexToColLetter(AMT_COL_INDEX)
-        const SUM_RANGE = `${AMT_COL_LETTER}${info.start_row + 2}:${AMT_COL_LETTER}${info.end_row + 1}`
-
-
-
-        for (let i = info.start_row; i <= info.end_row; i++) {
-            const ROW = WEEKLY_CHARGES_SHEET.GetRow(i)
-            if (!ROW) { continue }
-
-            if (i == info.end_row) {
-                ROW[TOTAL_COL_INDEX] = `=SUM(ARRAYFORMULA(ROUNDUP(${SUM_RANGE})))`
-            }
-            else {
-                ROW[TOTAL_COL_INDEX] = ""
-            }
-
-            ROW[MONEY_LEFT_COL_INDEX] = ""
-
-            WEEKLY_CHARGES_SHEET.OverWriteRow(ROW)
-        }
-
-
-
-        SUM_RANGES.push(SUM_RANGE)
-        TIPS.push(`${__Util_IndexToColLetter(TIPS_INDEX)}${info.start_row + 1}`)
-
+  WEEKLY_CHARGES_SHEET.ForEachRow((row, i) => {
+    const PURCHASE = String(row[PURCHASE_LOC_COL_INDEX]);
+    if (__Util_IsHeader(PURCHASE)) {
+      index = i;
+      WEEKLY_CHARGES.set(i, 0);
+      MONTHLY_ALLOWANCE.push(PAY_AMT.at(-1)!);
+    } else if (index !== -1) {
+      const AMT = WEEKLY_CHARGES.get(index)!;
+      WEEKLY_CHARGES.set(index, AMT + 1);
     }
+  }, START);
 
-    const LAST_WEEK = MONTHS.at(-1)!
-    const MONTHLY_ALLOWANCE = Math.min(PAY_AMT.at(-1)! * MONTHS.length, 500)
+  const FULL_MONTHLY_ALLOWANCE = Math.min(MONTHLY_ALLOWANCE.reduce((a, b) => a + b, 0), 600);
+  const SUM_RANGES = new Array<string>();
+  const TIP_CELLS = new Array<string>();
+  let SaveMoneyLeft = () => {};
 
-    const ROW = WEEKLY_CHARGES_SHEET.GetRow(LAST_WEEK.end_row)!
-    ROW[MONEY_LEFT_COL_INDEX] = `= ${MONTHLY_ALLOWANCE} + SUM(${TIPS.join(',')}) - SUM(${SUM_RANGES.join(',')})`
-    WEEKLY_CHARGES_SHEET.OverWriteRow(ROW)
-    WEEKLY_CHARGES_SHEET.SaveToTab()
+  for (let [week_index, charge_count] of WEEKLY_CHARGES) {
+    const AMT_COL_LETTER = __Util_IndexToColLetter(AMT_COL_INDEX);
+    let end_row = week_index + charge_count + 1;
+    const SUM_RANGE = `${AMT_COL_LETTER}${week_index + 2}:${AMT_COL_LETTER}${end_row}`;
+    const ROW = WEEKLY_CHARGES_SHEET.GetRow(week_index + charge_count)!;
+    ROW[TOTAL_COL_INDEX] = `=SUM(ARRAYFORMULA(ROUNDUP(${SUM_RANGE})))`;
+    ROW[MONEY_LEFT_COL_INDEX] = "";
+    SaveMoneyLeft = () => {
+      ROW[MONEY_LEFT_COL_INDEX] =
+        `= ${FULL_MONTHLY_ALLOWANCE} + SUM(${TIP_CELLS.join()}) - SUM(${SUM_RANGES})`;
+      WEEKLY_CHARGES_SHEET.OverWriteRow(ROW);
+    };
+
+    TIP_CELLS.push(`${__Util_IndexToColLetter(TIPS_INDEX)}${week_index + 1}`);
+    WEEKLY_CHARGES_SHEET.OverWriteRow(ROW);
+    SUM_RANGES.push(SUM_RANGE);
+  }
+
+  SaveMoneyLeft()
+  WEEKLY_CHARGES_SHEET.SaveToTab();
 }

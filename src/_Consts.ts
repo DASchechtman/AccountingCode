@@ -44,5 +44,6 @@ const FRIEND_FAMILY_LOANS_TAB_NAME = "Family/Friend Loans"
 const INVESTMENT_DATA_TAB_NAME = "Investment Data"
 const INVESTMENT_ALLOC_TAB = "Robinhood Investment Allocation"
 const START_OF_MONTH_ROW_CACHE_KEY = "MONTH_START_ROW"
+const END_OF_MONTH_ROW_CACHE_KEY = "MONTH_END_ROW"
 
 const INVESTMENT_TRACKER_RANGE = "G2:Q13"

@@ -1,22 +1,21 @@
 function SafelyCreateMenu(CreateMenu: () => void) {
   try {
-    CreateMenu()
-  }
-  catch {}
+    CreateMenu();
+  } catch {}
 }
 
 function onEdit(e: unknown) {
-  if (!__Util_EventObjectIsEditEventObject(e)) { return }
+  if (!__Util_EventObjectIsEditEventObject(e)) {
+    return;
+  }
   const TAB_NAME = e.range.getSheet().getName();
 
   if (TAB_NAME === WEEKLY_CREDIT_CHARGES_TAB_NAME) {
-    WeeklyCreditChargesOnEdit()
-  }
-  else if (TAB_NAME === HOUSE_SAVINGS_TAB_NAME) {
-    HouseSavingsOnEdit()
-  }
-  else if (TAB_NAME === INVESTMENT_ALLOC_TAB) {
-    InvestmentAllocationCalcOnEdit()
+    WeeklyCreditChargesOnEdit();
+  } else if (TAB_NAME === HOUSE_SAVINGS_TAB_NAME) {
+    HouseSavingsOnEdit();
+  } else if (TAB_NAME === INVESTMENT_ALLOC_TAB) {
+    InvestmentAllocationCalcOnEdit();
   }
 }
 
@@ -24,31 +23,30 @@ function onOpen() {
   const UI = SpreadsheetApp.getUi();
 
   try {
-    UI.createMenu("Budgeting")
-      .addToUi();
-  }
-  catch { }
+    UI.createMenu("Budgeting").addToUi();
+  } catch {}
 
   SafelyCreateMenu(() => {
     UI.createMenu("Budgeting")
-        .addItem("Import Credit Card Transactions", "ImportCreditHistory")
-        .addItem("Refresh User Cache", "RefreshCache")
-        .addToUi()
-  })
+      .addItem("Import Credit Card Transactions", "ImportCreditHistory")
+      .addItem("Refresh User Cache", "RefreshCache")
+      .addToUi();
+  });
 
   SafelyCreateMenu(() => {
     UI.createMenu("Debug")
       .addItem("Test Daily Trigger", "onDailyTrigger")
-      .addToUi()
-  })
+      .addToUi();
+  });
 }
 
 function onDailyTrigger() {
-  AddRowsWhenNeeded()
-  CacheStartOfMonthRow()
-  GroupWeeklyCharges()
+  AddRowsWhenNeeded();
+  if (CacheStartOfMonthRow()) {
+    GroupWeeklyCharges();
+  }
 }
 
 function onHourlyTrigger() {
-  ScanEmailForCharges()
+  ScanEmailForCharges();
 }

@@ -152,7 +152,6 @@ function __ICH_AddToSheet(imported_data: any) {
     __ICH_RecordNewPurchases(ROWS_TO_ADD, DATES, PURCHASE_DATE_INDEX, SHEET_TRACKER, DUE_DATE_INDEX)
     SHEET_TRACKER.SaveToTab()
 
-    __Cache_Utils_StoreOneWeekLoanCurrentMonthInfo()
     __ICH_RemoveAllGroups(SHEET_TRACKER)
     __Util_GroupCurrentMonthCharges()
 }
