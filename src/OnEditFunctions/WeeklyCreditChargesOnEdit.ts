@@ -68,10 +68,13 @@ function WeeklyCreditChargesOnEdit() {
     }
   }, START);
 
-  const FULL_MONTHLY_ALLOWANCE = Math.min(MONTHLY_ALLOWANCE.reduce((a, b) => a + b, 0), 600);
+  const FULL_MONTHLY_ALLOWANCE = Math.min(
+    MONTHLY_ALLOWANCE.reduce((a, b) => a + b, 0),
+    600,
+  );
   const SUM_RANGES = new Array<string>();
   const TIP_CELLS = new Array<string>();
-  let SaveMoneyLeft = () => {};
+  let SaveMoneyLeft: (() => void) | null = null;
 
   for (let [week_index, charge_count] of WEEKLY_CHARGES) {
     const AMT_COL_LETTER = __Util_IndexToColLetter(AMT_COL_INDEX);
@@ -80,17 +83,19 @@ function WeeklyCreditChargesOnEdit() {
     const ROW = WEEKLY_CHARGES_SHEET.GetRow(week_index + charge_count)!;
     ROW[TOTAL_COL_INDEX] = `=SUM(ARRAYFORMULA(ROUNDUP(${SUM_RANGE})))`;
     ROW[MONEY_LEFT_COL_INDEX] = "";
-    SaveMoneyLeft = () => {
-      ROW[MONEY_LEFT_COL_INDEX] =
-        `= ${FULL_MONTHLY_ALLOWANCE} + SUM(${TIP_CELLS.join()}) - SUM(${SUM_RANGES})`;
-      WEEKLY_CHARGES_SHEET.OverWriteRow(ROW);
-    };
+    if (!SaveMoneyLeft) {
+      SaveMoneyLeft = () => {
+        ROW[MONEY_LEFT_COL_INDEX] =
+          `= ${FULL_MONTHLY_ALLOWANCE} + SUM(${TIP_CELLS.join()}) - SUM(${SUM_RANGES})`;
+        WEEKLY_CHARGES_SHEET.OverWriteRow(ROW);
+      };
+    }
 
     TIP_CELLS.push(`${__Util_IndexToColLetter(TIPS_INDEX)}${week_index + 1}`);
     WEEKLY_CHARGES_SHEET.OverWriteRow(ROW);
     SUM_RANGES.push(SUM_RANGE);
   }
 
-  SaveMoneyLeft()
+  SaveMoneyLeft?.call(null);
   WEEKLY_CHARGES_SHEET.SaveToTab();
 }
