@@ -178,6 +178,8 @@ function __ICH_AddToSheet(imported_data: any) {
     throw new Error("Wrong Input!");
   }
   console.log(JSON.stringify(imported_data));
+  imported_data = imported_data.filter(el => el.date !== '' && el.name !== '')
+  console.log(JSON.stringify(imported_data));
 
   const SHEET_TRACKER = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME);
   const CARD_INDEX = SHEET_TRACKER.GetHeaderIndex("Card");
