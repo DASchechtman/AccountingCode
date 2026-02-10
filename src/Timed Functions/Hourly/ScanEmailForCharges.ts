@@ -42,8 +42,8 @@ function ScanEmailForCharges() {
     let last_date = ""
 
     const PURCHASE_LOC_INDEX = SHEET.GetHeaderIndex("Purchase Location")
-    const START = Number(__Cache_Utils_QueryFirstWeek('start'))
-    const END = Number(__Cache_Utils_QueryLastWeek('end'))
+    const START = __Util_GetRowThatStartsTheMonth()
+    const END = __Util_GetRowThatEndsTheMonth()
 
 
     SHEET.ForEachRow((row, i) => {
@@ -79,8 +79,6 @@ function ScanEmailForCharges() {
     }
 
     SHEET.SaveToTab()
-
-    __Cache_Utils_StoreOneWeekLoanCurrentMonthInfo()
-
+    UpdateEndOfMonthRowCache()
     return true
 }

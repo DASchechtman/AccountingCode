@@ -442,6 +442,21 @@ function __Util_GetRowThatEndsTheMonth(override = false) {
     );
   }
 
+  const HaventFoundHeader = (i: number) => {
+    try {
+      const CUR_ROW = SHEET.GetRow(i)!
+      const PURCHASE_LOC = String(CUR_ROW[PURCHASE_LOCATION_INDEX])
+      return !__Util_IsHeader(PURCHASE_LOC)
+    }
+    catch {
+      return false
+    }
+  }
+
+  while (HaventFoundHeader(last_date_row + 1)) {
+    last_date_row++
+  }
+
   return last_date_row;
 
 
