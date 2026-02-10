@@ -30,6 +30,7 @@ function onOpen() {
     UI.createMenu("Budgeting")
       .addItem("Import Credit Card Transactions", "ImportCreditHistory")
       .addItem("Refresh User Cache", "RefreshCache")
+      .addItem("Group", "__Util_GroupCurrentMonthCharges")
       .addToUi();
   });
 

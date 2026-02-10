@@ -499,7 +499,7 @@ function __Util_GroupCurrentMonthCharges() {
         RANGE_ARR.push(`J${group_data.start_row + 1}`);
       } else {
         RANGE_ARR.push(
-          `J${group_data.start_row + 1 + group_data.num_of_purchases}`,
+          `J${group_data.start_row  + group_data.num_of_purchases}`,
         );
       }
       const RANGE = RAW_SHEET.getRange(RANGE_ARR.join(":"));

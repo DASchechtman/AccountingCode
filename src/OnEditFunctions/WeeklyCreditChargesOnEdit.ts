@@ -66,6 +66,9 @@ function WeeklyCreditChargesOnEdit() {
       const AMT = WEEKLY_CHARGES.get(index)!;
       WEEKLY_CHARGES.set(index, AMT + 1);
     }
+    row[TOTAL_COL_INDEX] = "";
+    row[MONEY_LEFT_COL_INDEX] = "";
+    return row
   }, START);
 
   const FULL_MONTHLY_ALLOWANCE = Math.min(

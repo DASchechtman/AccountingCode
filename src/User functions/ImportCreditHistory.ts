@@ -178,7 +178,6 @@ function __ICH_AddToSheet(imported_data: any) {
     throw new Error("Wrong Input!");
   }
   console.log(JSON.stringify(imported_data));
-  imported_data = imported_data.filter((x) => __ICH_IsBeforeThe26th(x.date));
 
   const SHEET_TRACKER = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME);
   const CARD_INDEX = SHEET_TRACKER.GetHeaderIndex("Card");
@@ -206,22 +205,27 @@ function __ICH_AddToSheet(imported_data: any) {
       }
     },
     START,
-    END + 1,
   );
 
   for (let el of imported_data) {
     for (let i = 0; i < MAP.length; i++) {
       const CUR = MAP.at(i)!;
       const NEXT = MAP.at(i + 1);
-      if (
+      console.log(`Comparing ${el.date} to ${CUR.date} and ${NEXT?.date}, ${new Date(el.date)} < ${new Date(CUR.date)}`);
+      if (new Date(el.date) < new Date(CUR.date) && i === 0) {
+        CUR.data.push(el);
+        break;
+      }
+      else if (
         NEXT &&
         new Date(el.date) >= new Date(CUR.date) &&
         new Date(el.date) < new Date(NEXT.date)
       ) {
         CUR.data.push(el);
-        break;
+        break
       } else if (NEXT === undefined) {
         CUR.data.push(el);
+        break
       }
     }
   }
@@ -255,6 +259,7 @@ function __ICH_AddToSheet(imported_data: any) {
   }
 
   SHEET_TRACKER.SaveToTab();
+  __ICH_RemoveAllGroups(SHEET_TRACKER);
 }
 
 function ImportCreditHistory() {
