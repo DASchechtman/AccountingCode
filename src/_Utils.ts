@@ -358,43 +358,32 @@ function __Util_GetRowThatStartsTheMonth(override = false) {
   let today = new Date();
   const SHEET = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME);
   const PURCHASE_LOCATION_INDEX = SHEET.GetHeaderIndex("Purchase Location");
+  const WENDSDAY = 3;
+  const ONE_WEEK = 7;
+  const START_OF_MONTH = 28
 
-  let found_beginning_of_month = __Util_DateInCurrentPayPeriod(today);
-  let last_date_str = __Util_CreateDateString(today);
+  let found_beginning_of_month = () => __Util_DateInCurrentPayPeriod(today);
+  let last_date_str = () => __Util_CreateDateString(today);
 
-  while (today.getDay() !== 3 && found_beginning_of_month) {
+  while (true) {
     today.setDate(today.getDate() - 1);
-    found_beginning_of_month = __Util_DateInCurrentPayPeriod(today);
-    if (!found_beginning_of_month) {
-      break;
+    if (!found_beginning_of_month() && today.getDay() === WENDSDAY) {
+      break
     }
-
-    last_date_str = __Util_CreateDateString(today);
   }
 
-  let last_date = last_date_str;
-  let last_date_row = SHEET.FindRowIndex((row) =>
-    String(row[PURCHASE_LOCATION_INDEX]).includes(last_date),
+  while (true) {
+    today.setDate(today.getDate() + 1);
+    if (found_beginning_of_month() && today.getDate() === START_OF_MONTH) { break }
+  }
+
+  let last_date_row = () => SHEET.FindRowIndex((row) =>
+    String(row[PURCHASE_LOCATION_INDEX]).includes(last_date_str()),
   );
 
-  if (!found_beginning_of_month) {
-    return last_date_row;
-  }
+  while (last_date_row() < 0) { today.setDate(today.getDate() + 1) }
 
-  while (last_date_row !== -1 && found_beginning_of_month) {
-    today.setDate(today.getDate() - 7);
-    found_beginning_of_month = __Util_DateInCurrentPayPeriod(today);
-    if (!found_beginning_of_month) {
-      break;
-    }
-
-    last_date = __Util_CreateDateString(today);
-    last_date_row = SHEET.FindRowIndex((row) =>
-      String(row[PURCHASE_LOCATION_INDEX]).includes(last_date),
-    );
-  }
-
-  return last_date_row;
+  return last_date_row();
 }
 
 function __Util_GetRowThatEndsTheMonth(override = false) {
@@ -403,63 +392,19 @@ function __Util_GetRowThatEndsTheMonth(override = false) {
     return Number(CACHED_ROW_NUM)
   }
 
-  let today = new Date();
-  const SHEET = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME);
-  const PURCHASE_LOCATION_INDEX = SHEET.GetHeaderIndex("Purchase Location");
+  let i = -1
+  const SHEET = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
+  const PURCHASE_LOCATION_INDEX = SHEET.GetHeaderIndex("Purchase Location")
 
-  let found_beginning_of_month = __Util_DateInCurrentPayPeriod(today);
-  let last_date_str = __Util_CreateDateString(today);
-
-  while (today.getDay() !== 3 && found_beginning_of_month) {
-    today.setDate(today.getDate() - 1);
-    found_beginning_of_month = __Util_DateInCurrentPayPeriod(today);
-    if (!found_beginning_of_month) {
-      break;
-    }
-
-    last_date_str = __Util_CreateDateString(today);
-  }
-
-  let last_date = last_date_str;
-  let last_date_row = SHEET.FindRowIndex((row) =>
-    String(row[PURCHASE_LOCATION_INDEX]).includes(last_date),
-  );
-
-  if (!found_beginning_of_month) {
-    return last_date_row;
-  }
-
-  while (last_date_row !== -1 && found_beginning_of_month) {
-    today.setDate(today.getDate() + 7);
-    found_beginning_of_month = __Util_DateInCurrentPayPeriod(today);
-    if (!found_beginning_of_month) {
-      break;
-    }
-
-    last_date = __Util_CreateDateString(today);
-    last_date_row = SHEET.FindRowIndex((row) =>
-      String(row[PURCHASE_LOCATION_INDEX]).includes(last_date),
-    );
-  }
-
-  const HaventFoundHeader = (i: number) => {
-    try {
-      const CUR_ROW = SHEET.GetRow(i)!
-      const PURCHASE_LOC = String(CUR_ROW[PURCHASE_LOCATION_INDEX])
-      return !__Util_IsHeader(PURCHASE_LOC)
-    }
-    catch {
-      return false
+  for (let j = SHEET.NumberOfRows() - 1; j >= 0; j--) {
+    const ROW = SHEET.GetRow(j)!
+    if (String(ROW[PURCHASE_LOCATION_INDEX]).includes(PURCHASE_HEADER)) {
+      i = j
+      break
     }
   }
 
-  while (HaventFoundHeader(last_date_row + 1)) {
-    last_date_row++
-  }
-
-  return last_date_row;
-
-
+  return i
 }
 
 function __Util_GroupCurrentMonthCharges() {

@@ -1,5 +1,5 @@
 
-function AddRowsWhenNeeded() {
+function AddNextMonthRows() {
     const SHEET = new GoogleSheetTabs(WEEKLY_CREDIT_CHARGES_TAB_NAME)
     const PURCHASE_LOCATION_INDEX = SHEET.GetHeaderIndex("Purchase Location")
     const DUE_DATE_INDEX = SHEET.GetHeaderIndex("Due Date")

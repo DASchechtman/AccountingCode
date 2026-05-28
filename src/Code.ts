@@ -22,15 +22,8 @@ function onEdit(e: unknown) {
 function onOpen() {
   const UI = SpreadsheetApp.getUi();
 
-  try {
-    UI.createMenu("Budgeting").addToUi();
-  } catch {}
-
   SafelyCreateMenu(() => {
     UI.createMenu("Budgeting")
-      .addItem("Import Credit Card Transactions", "ImportCreditHistory")
-      .addItem("Refresh User Cache", "RefreshCache")
-      .addItem("Group", "__Util_GroupCurrentMonthCharges")
       .addToUi();
   });
 
@@ -42,10 +35,9 @@ function onOpen() {
 }
 
 function onDailyTrigger() {
-  AddRowsWhenNeeded();
-  if (CacheStartOfMonthRow()) {
-    GroupWeeklyCharges();
-  }
+  const TODAY = new Date();
+  if (TODAY.getDate() !== 28) { return }
+  StoreSpendDataAndReset()
 }
 
 function onHourlyTrigger() {

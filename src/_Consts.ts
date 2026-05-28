@@ -31,6 +31,8 @@ const PURCHASE_HEADER = "Purchases for"
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 const PAYMENT_SCHEDULE = ["Weekly", "Bi-Weekly", "Semi-Monthly", "Monthly"]
 
+const INVESTMENT_TRACKER_RANGE = "G2:Q13"
+
 const WEEKLY_CREDIT_CHARGES_TAB_NAME = "One Week Loans"
 const HOUSE_BUDGET_DASHBOARD_TAB_NAME = "Household Budget Dashboard"
 const MULTI_WEEK_LOANS_TAB_NAME = "Multi Week Loans"
@@ -46,4 +48,7 @@ const INVESTMENT_ALLOC_TAB = "Robinhood Investment Allocation"
 const START_OF_MONTH_ROW_CACHE_KEY = "MONTH_START_ROW"
 const END_OF_MONTH_ROW_CACHE_KEY = "MONTH_END_ROW"
 
-const INVESTMENT_TRACKER_RANGE = "G2:Q13"
+
+const RO_PERSONAL_SPEND_TAB = "Ro Personal Spend Tracker"
+const DAN_PERSONAL_SPEND_TAB = "Dan Personal Spend Tracker"
+const PERSONAL_SPEND_STORAGE_TAB = "Personal Spend Data Store"
