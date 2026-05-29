@@ -9,14 +9,6 @@ function onEdit(e: unknown) {
     return;
   }
   const TAB_NAME = e.range.getSheet().getName();
-
-  if (TAB_NAME === WEEKLY_CREDIT_CHARGES_TAB_NAME) {
-    WeeklyCreditChargesOnEdit();
-  } else if (TAB_NAME === HOUSE_SAVINGS_TAB_NAME) {
-    HouseSavingsOnEdit();
-  } else if (TAB_NAME === INVESTMENT_ALLOC_TAB) {
-    InvestmentAllocationCalcOnEdit();
-  }
 }
 
 function onOpen() {
