@@ -65,7 +65,7 @@ function __SSDAR_UpdateLoanTab(loan_tab: GoogleSheetTabs, who: string, allowance
         }
     }
 
-    if (!found_empty_cell) {
+    if (!found_empty_cell && allowance - total_spent !== 0) {
         if (allowance - total_spent < 0) {
             new_row[CHARGES_INDEX] = allowance - total_spent
         }
