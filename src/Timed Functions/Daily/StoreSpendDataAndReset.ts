@@ -13,8 +13,9 @@ function __SSDAR_StoreData(spending_tab_name: string): [string, number, number] 
 
     SPENDING_TAB.ForEachRow((row, i) => {
         CSV.push(row.filter(n => n !== "").join("<->"))
+        const COST = Number(row[PURCHASE_ATM_INDEX])
 
-        total_spent += Number(row[PURCHASE_ATM_INDEX]) || 0
+        if (!isNaN(COST)) { total_spent += COST }
         
         if (i > START_INDEX && row[PURCHASE_CAT_INDEX] !== "Subscriptions" && row[PURCHASE_CAT_INDEX] !== "") {
             let new_row = ["", "", "", ""]
