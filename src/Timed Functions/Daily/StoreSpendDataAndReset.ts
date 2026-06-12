@@ -18,8 +18,8 @@ function __SSDAR_StoreData(spending_tab_name: string): [string, () => number] {
         if (!isNaN(COST)) { total_spent += COST }
         
         if (i > START_INDEX && row[PURCHASE_CAT_INDEX] !== "Subscriptions" && row[PURCHASE_CAT_INDEX] !== "") {
-            let new_row = ["", "", "", ""]
-            return new_row
+            let blank_row = new Array<string>(row.length).fill("")
+            return blank_row
         }
         else if (i > START_INDEX && row[PURCHASE_CAT_INDEX] === "Subscriptions") {
             row[PURCHASE_DATE_INDEX] = __Util_CreateDateString(new Date())
