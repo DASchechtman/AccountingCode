@@ -1,4 +1,4 @@
-function __SSDAR_StoreData(spending_tab_name: string): [string, number, number] {
+function __SSDAR_StoreData(spending_tab_name: string): [string, () => number] {
     const SPENDING_TAB = new GoogleSheetTabs(spending_tab_name)
 
     const ALLOWANCE = SPENDING_TAB.GetRow(1)!.at(0) as number
@@ -28,13 +28,15 @@ function __SSDAR_StoreData(spending_tab_name: string): [string, number, number] 
     }, START_INDEX)
 
     SPENDING_TAB.SaveToTab()
-    return [CSV.join("\n"), ALLOWANCE, total_spent]
+    return [CSV.join("\n"), () => ALLOWANCE - total_spent]
 }
 
-function __SSDAR_UpdateLoanTab(loan_tab: GoogleSheetTabs, who: string, allowance: number, total_spent: number) {
+function __SSDAR_UpdateLoanTab(loan_tab: GoogleSheetTabs, who: string, BudgetLeft: () => number) {
     let start_index = 0
     let new_row = new Array<string | number>()
     let found_empty_cell = false
+
+    const REMAINING_BUDGET = BudgetLeft()
 
     if (who.toLowerCase() === "dan") {
         start_index = 4
@@ -51,26 +53,26 @@ function __SSDAR_UpdateLoanTab(loan_tab: GoogleSheetTabs, who: string, allowance
             new_row.fill("")
         }
 
-        if (allowance - total_spent < 0 && ROW[CHARGES_INDEX] === "") {
-            ROW[CHARGES_INDEX] = allowance - total_spent
+        if (REMAINING_BUDGET < 0 && ROW[CHARGES_INDEX] === "") {
+            ROW[CHARGES_INDEX] = REMAINING_BUDGET
             found_empty_cell = true
             loan_tab.OverWriteRow(ROW)
             break
         }
-        else if (allowance - total_spent > 0 && ROW[PAYMENT_INDEX] === "") {
-            ROW[PAYMENT_INDEX] = allowance - total_spent
+        else if (REMAINING_BUDGET > 0 && ROW[PAYMENT_INDEX] === "") {
+            ROW[PAYMENT_INDEX] = REMAINING_BUDGET
             found_empty_cell = true
             loan_tab.OverWriteRow(ROW)
             break
         }
     }
 
-    if (!found_empty_cell && allowance - total_spent !== 0) {
-        if (allowance - total_spent < 0) {
-            new_row[CHARGES_INDEX] = allowance - total_spent
+    if (!found_empty_cell && REMAINING_BUDGET !== 0) {
+        if (REMAINING_BUDGET < 0) {
+            new_row[CHARGES_INDEX] = REMAINING_BUDGET
         }
-        else if (allowance - total_spent > 0) {
-            new_row[PAYMENT_INDEX] = allowance - total_spent
+        else if (REMAINING_BUDGET > 0) {
+            new_row[PAYMENT_INDEX] = REMAINING_BUDGET
         }
 
         loan_tab.AppendRow(new_row)
@@ -84,15 +86,18 @@ function StoreSpendDataAndReset() {
     const RO_SPEND_DATA = __SSDAR_StoreData(RO_PERSONAL_SPEND_TAB)
     const DAN_SPEND_DATA = __SSDAR_StoreData(DAN_PERSONAL_SPEND_TAB)
 
-    const STORAGE = [
-        RO_SPEND_DATA[0],
-        DAN_SPEND_DATA[0]
-    ]
+    const DAN_CSV = DAN_SPEND_DATA[0]
+    const RO_CSV = RO_SPEND_DATA[0]
+
+    const DanBudgetLeft = DAN_SPEND_DATA[1]
+    const RoBudgetLeft = RO_SPEND_DATA[1]
+
+    const STORAGE = [DAN_CSV, RO_CSV]
 
     STORAGE_TAB.AppendRow(STORAGE)
     STORAGE_TAB.SaveToTab()
 
-    __SSDAR_UpdateLoanTab(LOAN_TAB, "Ro", RO_SPEND_DATA[1], RO_SPEND_DATA[2])
-    __SSDAR_UpdateLoanTab(LOAN_TAB, "Dan", DAN_SPEND_DATA[1], DAN_SPEND_DATA[2])
+    __SSDAR_UpdateLoanTab(LOAN_TAB, "Ro", RoBudgetLeft)
+    __SSDAR_UpdateLoanTab(LOAN_TAB, "Dan", DanBudgetLeft)
     LOAN_TAB.SaveToTab()
 }
