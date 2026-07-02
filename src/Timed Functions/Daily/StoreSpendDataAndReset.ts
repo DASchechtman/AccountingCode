@@ -28,7 +28,7 @@ function __SSDAR_StoreData(spending_tab_name: string): [string, () => number] {
     }, START_INDEX)
 
     SPENDING_TAB.SaveToTab()
-    return [CSV.join("\n"), () => ALLOWANCE - total_spent]
+    return [CSV.join("\n").trim(), () => ALLOWANCE - total_spent]
 }
 
 function __SSDAR_UpdateLoanTab(loan_tab: GoogleSheetTabs, who: string, BudgetLeft: () => number) {
