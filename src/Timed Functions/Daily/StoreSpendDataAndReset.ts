@@ -44,6 +44,7 @@ function __SSDAR_UpdateLoanTab(loan_tab: GoogleSheetTabs, who: string, BudgetLef
 
     const CHARGES_INDEX = start_index + 1
     const PAYMENT_INDEX = start_index + 2
+    const NOTE_INDEX = start_index + 3
 
     for (let i = 0; i < loan_tab.NumberOfRows(); i++) {
         const ROW = loan_tab.GetRow(i)!
@@ -56,14 +57,16 @@ function __SSDAR_UpdateLoanTab(loan_tab: GoogleSheetTabs, who: string, BudgetLef
         if (REMAINING_BUDGET < 0 && ROW[CHARGES_INDEX] === "") {
             ROW[CHARGES_INDEX] = REMAINING_BUDGET
             found_empty_cell = true
-            loan_tab.OverWriteRow(ROW)
-            break
         }
         else if (REMAINING_BUDGET > 0 && ROW[PAYMENT_INDEX] === "") {
             ROW[PAYMENT_INDEX] = REMAINING_BUDGET
             found_empty_cell = true
+        }
+
+        if (found_empty_cell) {
+            ROW[NOTE_INDEX] = "Auto-Pay from leftover spend"
             loan_tab.OverWriteRow(ROW)
-            break
+            break 
         }
     }
 
@@ -75,6 +78,7 @@ function __SSDAR_UpdateLoanTab(loan_tab: GoogleSheetTabs, who: string, BudgetLef
             new_row[PAYMENT_INDEX] = REMAINING_BUDGET
         }
 
+        new_row[NOTE_INDEX] = "Auto-Pay from leftover spend"
         loan_tab.AppendRow(new_row)
     }
 }
