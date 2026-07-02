@@ -34,7 +34,7 @@ function __SSDAR_StoreData(spending_tab_name: string): [string, () => number] {
 function __SSDAR_UpdateLoanTab(loan_tab: GoogleSheetTabs, who: string, BudgetLeft: () => number) {
     const START_ROW = loan_tab.GetRow(0)!
 
-    let start_index = START_ROW.findIndex(n => n.toString().toLowerCase() === who.toLowerCase())
+    let start_index = START_ROW.findIndex(n => n.toString().toLowerCase().includes(who.toLowerCase()))
     let new_row = new Array<string | number>()
     let found_empty_cell = false
 
@@ -92,7 +92,7 @@ function StoreSpendDataAndReset() {
     const DanBudgetLeft = DAN_SPEND_DATA[1]
     const RoBudgetLeft = RO_SPEND_DATA[1]
 
-    const STORAGE = [DAN_CSV, RO_CSV]
+    const STORAGE = [RO_CSV, DAN_CSV]
 
     STORAGE_TAB.AppendRow(STORAGE)
     STORAGE_TAB.SaveToTab()
