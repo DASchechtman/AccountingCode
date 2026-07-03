@@ -3,7 +3,7 @@ function __SSDAR_StoreData(spending_tab_name: string): [string, () => number] {
 
     const ALLOWANCE = SPENDING_TAB.GetRow(1)!.at(0) as number
 
-    const START_INDEX = SPENDING_TAB.FindRowIndex(row => row.includes("Purchase Category"))
+    const START_ROW_INDEX = SPENDING_TAB.FindRowIndex(row => row.includes("Purchase Category"))
     const PURCHASE_CAT_INDEX = 0
     const PURCHASE_ATM_INDEX = 1
     const PURCHASE_DATE_INDEX = 3
@@ -15,17 +15,17 @@ function __SSDAR_StoreData(spending_tab_name: string): [string, () => number] {
         CSV.push(row.filter(n => n !== "").join("<->"))
         const COST = Number(row[PURCHASE_ATM_INDEX])
 
-        if (!isNaN(COST)) { total_spent += COST }
+        if (!isNaN(COST) && row[PURCHASE_CAT_INDEX] !== 'House Repay') { total_spent += COST }
         
-        if (i > START_INDEX && row[PURCHASE_CAT_INDEX] !== "Subscriptions" && row[PURCHASE_CAT_INDEX] !== "") {
+        if (i > START_ROW_INDEX && row[PURCHASE_CAT_INDEX] !== "Subscriptions" && row[PURCHASE_CAT_INDEX] !== "") {
             let blank_row = new Array<string>(row.length).fill("")
             return blank_row
         }
-        else if (i > START_INDEX && row[PURCHASE_CAT_INDEX] === "Subscriptions") {
+        else if (i > START_ROW_INDEX && row[PURCHASE_CAT_INDEX] === "Subscriptions") {
             row[PURCHASE_DATE_INDEX] = __Util_CreateDateString(new Date())
             return row
         } 
-    }, START_INDEX)
+    }, START_ROW_INDEX)
 
     SPENDING_TAB.SaveToTab()
     return [CSV.join("\n").trim(), () => ALLOWANCE - total_spent]
