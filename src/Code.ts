@@ -4,12 +4,7 @@ function SafelyCreateMenu(CreateMenu: () => void) {
   } catch {}
 }
 
-function onEdit(e: unknown) {
-  if (!__Util_EventObjectIsEditEventObject(e)) {
-    return;
-  }
-  const TAB_NAME = e.range.getSheet().getName();
-}
+function onEdit(_: unknown) {}
 
 function onOpen() {
   const UI = SpreadsheetApp.getUi();
