@@ -71,14 +71,17 @@ function __SSDAR_UpdateLoanTab(loan_tab: GoogleSheetTabs, who: string, BudgetLef
     }
 
     if (!found_empty_cell && REMAINING_BUDGET !== 0) {
+        let row_msg = ''
         if (REMAINING_BUDGET < 0) {
             new_row[CHARGES_INDEX] = REMAINING_BUDGET
+            row_msg = `Added charge of $${REMAINING_BUDGET}`
         }
         else if (REMAINING_BUDGET > 0) {
             new_row[PAYMENT_INDEX] = REMAINING_BUDGET
+            row_msg = `Added payment of $${REMAINING_BUDGET}`
         }
 
-        new_row[NOTE_INDEX] = "Auto-Pay from leftover spend"
+        new_row[NOTE_INDEX] = row_msg
         loan_tab.AppendRow(new_row)
     }
 }

@@ -28,8 +28,9 @@ function onOpen() {
 
 function onDailyTrigger() {
   const TODAY = new Date();
-  if (TODAY.getDate() !== 28) { return }
-  StoreSpendDataAndReset()
+  if (TODAY.getDate() === 1) { 
+    StoreSpendDataAndReset()
+  }
 }
 
 function onHourlyTrigger() {
